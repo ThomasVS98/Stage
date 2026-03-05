@@ -23,7 +23,7 @@ def load_index():
 def create_retriever(index):
     
     retriever = index.as_retriever(
-        similarity_top_k=5
+        similarity_top_k=3
     )
 
     return retriever
