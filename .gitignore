@@ -1,5 +1,6 @@
 chroma_db/
 *.pyc
+data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

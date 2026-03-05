@@ -3,7 +3,7 @@ from sentence_transformers import SentenceTransformer
 from llama_index.llms.ollama import Ollama
 
 #LLM
-llm = Ollama(model="llama3.2:3b",
+llm = Ollama(model="llama3.2:3b", #mistral:7b
                 request_timeout=120,
                 context_window=4096)
 
@@ -49,30 +49,30 @@ queries = [
     "Wat is Microsoft Teams?"
 ]
 
-def judge_answer(query, context, answer):
-    judge_prompt = f"""
-        Je bent een evaluator voor een RAG systeem.
+# def judge_answer(query, context, answer):
+#     judge_prompt = f"""
+#         Je bent een evaluator voor een RAG systeem.
 
-        Controleer of het antwoord volledig gebaseerd is op de gegeven context.
+#         Controleer of het antwoord volledig gebaseerd is op de gegeven context.
 
-        Vraag:
-        {query}
+#         Vraag:
+#         {query}
 
-        Context:
-        {context}
+#         Context:
+#         {context}
 
-        Antwoord:
-        {answer}
+#         Antwoord:
+#         {answer}
 
-        Antwoord enkel met één woord:
+#         Antwoord enkel met één woord:
 
-        PASS  → antwoord is correct gebaseerd op de context
-        FAIL  → antwoord bevat informatie die niet in de context staat
-        """
+#         PASS  → antwoord is correct gebaseerd op de context
+#         FAIL  → antwoord bevat informatie die niet in de context staat
+#         """
  
-    result = llm.complete(judge_prompt)
+#     result = llm.complete(judge_prompt)
 
-    return result.text
+#     return result.text
 
 for query in queries:
     query_embedding = embedding_model.encode([query]).tolist()
@@ -112,7 +112,7 @@ for query in queries:
 
     answer = response.text
 
-    judge_result = judge_answer(query, context, answer)
+    # judge_result = judge_answer(query, context, answer)
 
     #Output
     print("\n Query")
@@ -122,5 +122,5 @@ for query in queries:
     print("\n LLM Response")
     print(response.text)
 
-    print("Judge:", judge_result)
+    # print("Judge:", judge_result)
 
