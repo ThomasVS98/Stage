@@ -5,6 +5,7 @@ from llama_index.core.node_parser import SentenceSplitter
 import chromadb
 import re
 
+
 # functie om urls te halen uit documenten
 def extract_urls(text):
     url_pattern = r"https?://[^\s]+"
@@ -16,6 +17,12 @@ def extract_urls(text):
         clean_urls.append(url)
 
     return clean_urls
+
+def clean_text(text: str) -> str:
+    text = re.sub(r"\n{3,}","\n\n",text)
+    text = re.sub(r"[ \t]{2,}"," ",text)
+    text = text.strip()
+    return text
 
 def extract_title(text):
     lines = text.split("\n")
@@ -39,7 +46,7 @@ def load_documents():
 
     for doc in documents:
 
-        text = doc.text
+        text = clean_text(doc.text)
         urls = extract_urls(text)
         doc.metadata["urls"] = " | ".join(urls) if urls else None
         doc.metadata["url_count"] = len(urls)
@@ -64,8 +71,11 @@ def load_documents():
 
         doc.metadata["source_file"] = doc.metadata.get("file_name")
         doc.doc_id = doc.metadata.get("file_name") or doc.id_
+
         title = extract_title(text)
         doc.metadata["title"] = title
+        new_content = f"Titel: {title}\n\n{text}"
+        doc.set_content(new_content)
 
         if urls:
             print(f"URLs gevonden in {doc.metadata['file_name']}:")
@@ -79,7 +89,7 @@ def build_index(documents):
 
     # embedding model definiëren
     embed_model = HuggingFaceEmbedding(
-        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2" #intfloat/multilingual-e5-base
     )
 
     # chroma
@@ -90,7 +100,10 @@ def build_index(documents):
     except:
         pass
 
-    chroma_collection = chroma_client.get_or_create_collection("docs")
+    chroma_collection = chroma_client.get_or_create_collection(
+        name = "docs",
+        metadata={"hnsw:space": "cosine"}
+        )
 
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
 
@@ -102,7 +115,7 @@ def build_index(documents):
         documents,
         storage_context=storage_context,
         embed_model=embed_model,
-        transformations=[SentenceSplitter(chunk_size=500, chunk_overlap=100)],
+        transformations=[SentenceSplitter(chunk_size=600, chunk_overlap=120)],
         show_progress=True
     )
 

@@ -4,6 +4,21 @@ from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.ollama import Ollama
 import chromadb
+import re
+
+
+DEBUG = True
+DEBUG_CONTEXT = True
+
+def debug_context(context):
+    if DEBUG_CONTEXT:
+        print("\n================ CONTEXT NAAR LLM ================\n")
+        print(context)
+        print("\n=================================================\n")
+
+def log(msg):
+    if DEBUG:
+        print(f"[RAG] {msg}")
 
 
 def load_index():
@@ -36,13 +51,16 @@ def build_context(nodes):
         source = metadata.get("source_file")
 
         context += f"""
+        [DOCUMENT]
         Bron: {source}      
         Titel: {title}
 
+        Tekst:
         {text}
-        ------------------------------
+        [/DOCUMENT]
         """
     return context
+
 
 def ask_llm(llm, context, query):
 
@@ -50,9 +68,13 @@ def ask_llm(llm, context, query):
 
     Je bent een IT-assistent voor de medewerkers van de Thomas More hogeschool.
 
-    Gebruik uitsluitend de onderstaande context om de vraag te beantwoorden.
-    Als het antwoord niet in de context staat, antwoor dan EXACT het volgende
-    zonder nog iets toe te voegen: "ik heb niet genoeg informatie".
+    RICHTLIJNEN:
+    1.Antwoord uitsluitend op basis van de onderstaande context.
+    2.Gebruik enkel expliciete informatie; maak onder geen omstandigheden aannames of eigen interpretaties.
+    3.Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
+    4.Alleen als er TOTAAL geen informatie over het onderwerp in de context staat, zeg je: "ik heb niet genoeg informatie".
+    5.GEEF EEN VOLLEDIG ANTWOORD: Noem specifieke voorbeelden, knoppen of situaties die in de tekst staan (zoals apparaten, bestandstypes of specifieke scenario's).
+    6.BELANGRIJK: De onderstaande context bevat informatie uit MEERDERE documenten. Scan ALLE documenten hieronder om een compleet overzicht te geven.
 
     Context:
     {context}
@@ -98,13 +120,32 @@ def detect_service(query):
 
     return None
 
+
+_DUTCH_STOPWORDS = {
+    "de","het","een","en","of","voor","van","op","in","met","naar","aan","bij","door","over",
+    "ik","je","jij","u","uw","we","wij","ze","zij","mijn","me","maar","niet","wel",
+    "hoe","wat","waar","wanneer","waarom","kan","kun","kunnen","is","zijn","worden","doen",
+    "vandaag","graag","even"
+}
+
+def _tokens(s: str) -> set[str]:
+    parts = re.findall(r"[a-zA-Z0-9]+", (s or "").lower())
+    return {p for p in parts if len(p) >= 3 and p not in _DUTCH_STOPWORDS}
+
+def lexical_overlap_count(query: str, nodes, max_nodes: int = 10) -> int:
+    q = _tokens(query)
+    if not q:
+        return 0
+    text = " ".join(n.node.get_text().lower() for n in nodes[:max_nodes])
+    t = _tokens(text)
+    return len(q.intersection(t))
+
+
 def main():
 
-    print("Index laden...")
     index = load_index()
-
     llm = Ollama(
-        model = "llama3.2:3b", # mistral:7b voor alternatief zwaarder model
+        model="llama3.2:3b", #mistral:7b
         request_timeout=120,
         context_window=4096
     )
@@ -113,28 +154,82 @@ def main():
     while True:
 
         query = input("\nVraag: ")
+        log(f"Vraag: {query}")
 
         if query == "exit":
             break
 
         service = detect_service(query)
-        if service:
-            filters = MetadataFilters(filters=[ExactMatchFilter(key="service", value=service)])
-            retriever = index.as_retriever(similarity_top_k=3,filters=filters)
-        else:
-            retriever = index.as_retriever(similarity_top_k=3)
+        log(f"Service filter: {service if service else 'geen'}")
 
-        nodes = retriever.retrieve(query)
+        retriever = index.as_retriever(
+            similarity_top_k=12,
+            #vector_store_query_mode="mmr",
+            #mmr_threshold=0.5,
+            # filters=MetadataFilters(
+            #     filters=[ExactMatchFilter(key="service", value=service)]
+            # ) if service else None
+        )
+            
+        all_nodes = retriever.retrieve(query)
+        log(f"Opgehaalde blokken: {len(all_nodes)}")
 
-        valid_nodes = [n for n in nodes if n.score < 0.45]
+        print("\nDEBUG scores:")
+        for node in all_nodes[:5]:
+            print(node.score, node.node.metadata.get("source_file"))
 
-        min_node_count = 3
-
-        if len(valid_nodes) < min_node_count:
-            print(f"\nDEBUG: Slechts {len(valid_nodes)} relevant(e) blok(ken) gevonden. Dit is onvoldoende.")
+        if not all_nodes:
+            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
             continue
 
-        context = build_context(valid_nodes)[:3000]
+        scores = [n.score for n in all_nodes if n.score is not None]
+        if not scores:
+            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+            continue
+
+        best_score = min(scores)
+        avg_score = sum(scores[:5]) / min(len(scores), 5)
+        log(f"Beste score: {best_score:.3f}")
+        log(f"Gemiddelde score (top5): {avg_score:.3f}")
+
+        if best_score >= 0.70:
+            log("Geen antwoord: beste score boven threshold.")
+            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+            continue
+
+        if avg_score >= 0.75:
+            log("Geen antwoord: gemiddelde score te hoog.")
+            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+            continue
+
+        overlap = lexical_overlap_count(query, all_nodes, max_nodes=10)
+        log(f"Lexical overlap: {overlap}")
+
+        if overlap < 1:
+            log("Geen antwoord: geen of te weinig overlap.")
+            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+            continue
+
+
+        valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.70]
+        log(f"Valide blokken onder threshold < 0.70: {len(valid_nodes)}")
+
+        min_node_count = 6
+
+        if len(valid_nodes) < min_node_count:
+            log("Geen antwoord: onvoeldoende relevante blokken gevonden.")
+            print(f"\nDEBUG: Slechts {len(valid_nodes)} relevant(e) blok(ken) gevonden. Dit is onvoldoende.")
+            continue
+        
+        valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
+        valid_nodes = valid_nodes[:6]
+        log("Chunks gebruikt for het antwoord:")
+        for node in valid_nodes:
+            source = node.node.metadata.get("source_file")
+            log(f"score {node.score:.3f} | {source}")
+
+        context = build_context(valid_nodes)
+        debug_context(context)
 
         print("\nAntwoord:\n")
 
