@@ -156,7 +156,7 @@ def ask_question(query: str):
     service = detect_service(query)
 
     retriever = index.as_retriever(
-        similarity_top_k=10,
+        similarity_top_k=12,
         vector_store_query_mode="mmr",
         mmr_threshold=0.5,
         filters=MetadataFilters(
@@ -193,7 +193,7 @@ def ask_question(query: str):
         }
 
     valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
-    valid_nodes = valid_nodes[:6]
+    valid_nodes = valid_nodes[:10]
 
     context = build_context(valid_nodes)
 
@@ -226,7 +226,7 @@ def main():
         log(f"Service filter: {service if service else 'geen'}")
 
         retriever = index.as_retriever(
-            similarity_top_k=10,
+            similarity_top_k=12,
             vector_store_query_mode="mmr",
             mmr_threshold=0.5,
             filters=MetadataFilters(
@@ -238,7 +238,7 @@ def main():
         log(f"Opgehaalde blokken: {len(all_nodes)}")
 
         print("\nDEBUG scores:")
-        for node in all_nodes[:5]:
+        for node in all_nodes[:10]:
             print(node.score, node.node.metadata.get("source_file"))
 
         if not all_nodes:
@@ -286,7 +286,7 @@ def main():
             continue
         
         valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
-        valid_nodes = valid_nodes[:6]
+        valid_nodes = valid_nodes[:10]
         log("Chunks gebruikt for het antwoord:")
         for node in valid_nodes:
             source = node.node.metadata.get("source_file")
