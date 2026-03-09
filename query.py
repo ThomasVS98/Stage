@@ -25,7 +25,8 @@ def log(msg):
 def load_index():
 
     embed_model = HuggingFaceEmbedding(
-        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        normalize=True
         )
     
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
@@ -239,7 +240,9 @@ def main():
 
         print("\nDEBUG scores:")
         for node in all_nodes[:10]:
-            print(node.score, node.node.metadata.get("source_file"))
+            print(
+                f"distance={node.score:.3f} | similarity={1-node.score:.3f} | {node.node.metadata.get('source_file')}"
+                )
 
         if not all_nodes:
             print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
@@ -251,7 +254,8 @@ def main():
             continue
 
         best_score = min(scores)
-        avg_score = sum(scores[:5]) / min(len(scores), 5)
+        scores_sorted = sorted(scores)
+        avg_score = sum(scores_sorted[:5]) / min(len(scores_sorted), 5)
         log(f"Beste score: {best_score:.3f}")
         log(f"Gemiddelde score (top5): {avg_score:.3f}")
 
@@ -267,18 +271,18 @@ def main():
 
 
 
-        valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.70]
-        log(f"Valide blokken onder threshold < 0.70: {len(valid_nodes)}")
+        valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.65]
+        log(f"Valide blokken onder threshold < 0.65: {len(valid_nodes)}")
 
         overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
         log(f"Lexical overlap: {overlap}")
 
-        if overlap < 1:
+        if overlap < 1 and service is None:
             log("Geen antwoord: geen of te weinig overlap.")
             print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
             continue
 
-        min_node_count = 6
+        min_node_count = 3
 
         if len(valid_nodes) < min_node_count:
             log("Geen antwoord: onvoeldoende relevante blokken gevonden.")
@@ -286,7 +290,7 @@ def main():
             continue
         
         valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
-        valid_nodes = valid_nodes[:10]
+        valid_nodes = valid_nodes[:8]
         log("Chunks gebruikt for het antwoord:")
         for node in valid_nodes:
             source = node.node.metadata.get("source_file")

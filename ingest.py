@@ -47,6 +47,7 @@ def load_documents():
     for doc in documents:
 
         text = clean_text(doc.text)
+        doc.set_content(text)
         urls = extract_urls(text)
         doc.metadata["urls"] = " | ".join(urls) if urls else None
         doc.metadata["url_count"] = len(urls)
@@ -89,7 +90,9 @@ def build_index(documents):
 
     # embedding model definiëren
     embed_model = HuggingFaceEmbedding(
-        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2" #intfloat/multilingual-e5-base
+        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2", #intfloat/multilingual-e5-base
+        normalize=True,
+        include_metadata=True
     )
 
     # chroma
@@ -115,12 +118,13 @@ def build_index(documents):
         documents,
         storage_context=storage_context,
         embed_model=embed_model,
-        transformations=[SentenceSplitter(chunk_size=500, chunk_overlap=75)],
+        transformations=[SentenceSplitter(chunk_size=400, chunk_overlap=100)],
         show_progress=True
     )
 
     print("index gemaakt")
     print("Aantal vectors in database",chroma_collection.count())
+    print(chroma_collection.metadata)
     
     return index
 
