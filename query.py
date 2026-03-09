@@ -21,6 +21,7 @@ def log(msg):
         print(f"[RAG] {msg}")
 
 
+
 def load_index():
 
     embed_model = HuggingFaceEmbedding(
@@ -37,6 +38,15 @@ def load_index():
     )
 
     return index
+
+index = load_index()
+
+llm = Ollama(
+    model="llama3.2:3b", #mistral:7b
+    request_timeout=120,
+    context_window=4096
+)
+
 
 def build_context(nodes):
 
@@ -140,20 +150,73 @@ def lexical_overlap_count(query: str, nodes, max_nodes: int = 10) -> int:
     t = _tokens(text)
     return len(q.intersection(t))
 
+#functie voor FastAPI
+def ask_question(query: str):
 
-def main():
+    service = detect_service(query)
 
-    index = load_index()
-    llm = Ollama(
-        model="llama3.2:3b", #mistral:7b
-        request_timeout=120,
-        context_window=4096
+    retriever = index.as_retriever(
+        similarity_top_k=10,
+        vector_store_query_mode="mmr",
+        mmr_threshold=0.5,
+        filters=MetadataFilters(
+            filters=[ExactMatchFilter(key="service", value=service)]
+        ) if service else None
     )
 
+    all_nodes = retriever.retrieve(query)
 
+    if not all_nodes:
+        return {
+            "answer": "Ik heb niet genoeg informatie.",
+            "sources": []
+        }
+
+    scores = [n.score for n in all_nodes if n.score is not None]
+
+    valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.70]
+
+    overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
+
+    if overlap < 1:
+        return {
+            "answer": "Ik heb niet genoeg informatie.",
+            "sources": []
+        }
+
+    min_node_count = 6
+
+    if len(valid_nodes) < min_node_count:
+        return {
+            "answer": "Ik heb niet genoeg informatie.",
+            "sources": []
+        }
+
+    valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
+    valid_nodes = valid_nodes[:6]
+
+    context = build_context(valid_nodes)
+
+    response = ask_llm(llm, context, query)
+
+    answer = ""
+    for token in response:
+        answer += token.delta
+
+    sources = list(
+        set(node.node.metadata.get("source_file") for node in valid_nodes)
+    )
+
+    return {
+        "answer": answer,
+        "sources": sources
+    }
+
+def main():
     while True:
 
         query = input("\nVraag: ")
+
         log(f"Vraag: {query}")
 
         if query == "exit":
@@ -163,12 +226,12 @@ def main():
         log(f"Service filter: {service if service else 'geen'}")
 
         retriever = index.as_retriever(
-            similarity_top_k=12,
-            #vector_store_query_mode="mmr",
-            #mmr_threshold=0.5,
-            # filters=MetadataFilters(
-            #     filters=[ExactMatchFilter(key="service", value=service)]
-            # ) if service else None
+            similarity_top_k=10,
+            vector_store_query_mode="mmr",
+            mmr_threshold=0.5,
+            filters=MetadataFilters(
+                filters=[ExactMatchFilter(key="service", value=service)]
+            ) if service else None
         )
             
         all_nodes = retriever.retrieve(query)
@@ -202,17 +265,18 @@ def main():
             print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
             continue
 
-        overlap = lexical_overlap_count(query, all_nodes, max_nodes=10)
+
+
+        valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.70]
+        log(f"Valide blokken onder threshold < 0.70: {len(valid_nodes)}")
+
+        overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
         log(f"Lexical overlap: {overlap}")
 
         if overlap < 1:
             log("Geen antwoord: geen of te weinig overlap.")
             print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
             continue
-
-
-        valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.70]
-        log(f"Valide blokken onder threshold < 0.70: {len(valid_nodes)}")
 
         min_node_count = 6
 

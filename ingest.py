@@ -74,8 +74,8 @@ def load_documents():
 
         title = extract_title(text)
         doc.metadata["title"] = title
-        new_content = f"Titel: {title}\n\n{text}"
-        doc.set_content(new_content)
+        # new_content = f"Titel: {title}\n\n{text}"
+        # doc.set_content(new_content)
 
         if urls:
             print(f"URLs gevonden in {doc.metadata['file_name']}:")
@@ -102,7 +102,7 @@ def build_index(documents):
 
     chroma_collection = chroma_client.get_or_create_collection(
         name = "docs",
-        metadata={"hnsw:space": "cosine"}
+        metadata={"hnsw:space": "cosine"},
         )
 
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
@@ -115,7 +115,7 @@ def build_index(documents):
         documents,
         storage_context=storage_context,
         embed_model=embed_model,
-        transformations=[SentenceSplitter(chunk_size=600, chunk_overlap=120)],
+        transformations=[SentenceSplitter(chunk_size=500, chunk_overlap=75)],
         show_progress=True
     )
 
@@ -126,7 +126,7 @@ def build_index(documents):
 
 def main():
     documents = load_documents()
-    index = build_index(documents)
+    build_index(documents)
 
 if __name__ == "__main__":
     main()
