@@ -3,6 +3,8 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.ollama import Ollama
+from llama_index.core.postprocessor import SentenceTransformerRerank
+from llama_index.core.schema import QueryBundle
 import chromadb
 import re
 
@@ -48,6 +50,10 @@ llm = Ollama(
     context_window=4096
 )
 
+reranker = SentenceTransformerRerank(
+    model="BAAI/bge-reranker-v2-m3",
+    top_n=6
+)
 
 def build_context(nodes):
 
@@ -227,7 +233,7 @@ def main():
         log(f"Service filter: {service if service else 'geen'}")
 
         retriever = index.as_retriever(
-            similarity_top_k=12,
+            similarity_top_k=20,
             vector_store_query_mode="mmr",
             mmr_threshold=0.5,
             filters=MetadataFilters(
@@ -238,63 +244,77 @@ def main():
         all_nodes = retriever.retrieve(query)
         log(f"Opgehaalde blokken: {len(all_nodes)}")
 
-        print("\nDEBUG scores:")
-        for node in all_nodes[:10]:
-            print(
-                f"distance={node.score:.3f} | similarity={1-node.score:.3f} | {node.node.metadata.get('source_file')}"
-                )
+        valid_nodes = reranker.postprocess_nodes(
+            all_nodes,
+            query_bundle=QueryBundle(query_str=query)
+        )
 
-        if not all_nodes:
-            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+        if not valid_nodes or valid_nodes[0].score < 0.35:
+            log(f"Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
+            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden. Intake opstarten...\n")
             continue
-
-        scores = [n.score for n in all_nodes if n.score is not None]
-        if not scores:
-            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-            continue
-
-        best_score = min(scores)
-        scores_sorted = sorted(scores)
-        avg_score = sum(scores_sorted[:5]) / min(len(scores_sorted), 5)
-        log(f"Beste score: {best_score:.3f}")
-        log(f"Gemiddelde score (top5): {avg_score:.3f}")
-
-        if best_score >= 0.70:
-            log("Geen antwoord: beste score boven threshold.")
-            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-            continue
-
-        if avg_score >= 0.75:
-            log("Geen antwoord: gemiddelde score te hoog.")
-            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-            continue
-
-
-
-        valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.65]
-        log(f"Valide blokken onder threshold < 0.65: {len(valid_nodes)}")
-
-        overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
-        log(f"Lexical overlap: {overlap}")
-
-        if overlap < 1 and service is None:
-            log("Geen antwoord: geen of te weinig overlap.")
-            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-            continue
-
-        min_node_count = 3
-
-        if len(valid_nodes) < min_node_count:
-            log("Geen antwoord: onvoeldoende relevante blokken gevonden.")
-            print(f"\nDEBUG: Slechts {len(valid_nodes)} relevant(e) blok(ken) gevonden. Dit is onvoldoende.")
-            continue
-        
-        valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
-        valid_nodes = valid_nodes[:8]
-        log("Chunks gebruikt for het antwoord:")
+                
+        log("Chunks geselecteerd door Reranker:")
         for node in valid_nodes:
-            source = node.node.metadata.get("source_file")
-            log(f"score {node.score:.3f} | {source}")
+            log(f"score {node.score:.3f} | {node.node.metadata.get('source_file')}")
+
+        # print("\nDEBUG scores:")
+        # for node in all_nodes[:10]:
+        #     print(
+        #         f"distance={node.score:.3f} | similarity={1-node.score:.3f} | {node.node.metadata.get('source_file')}"
+        #         )
+
+        # if not all_nodes:
+        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+        #     continue
+
+        # scores = [n.score for n in all_nodes if n.score is not None]
+        # if not scores:
+        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+        #     continue
+
+        # best_score = min(scores)
+        # scores_sorted = sorted(scores)
+        # avg_score = sum(scores_sorted[:5]) / min(len(scores_sorted), 5)
+        # log(f"Beste score: {best_score:.3f}")
+        # log(f"Gemiddelde score (top5): {avg_score:.3f}")
+
+        # if best_score >= 0.70:
+        #     log("Geen antwoord: beste score boven threshold.")
+        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+        #     continue
+
+        # if avg_score >= 0.75:
+        #     log("Geen antwoord: gemiddelde score te hoog.")
+        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+        #     continue
+
+
+
+        # valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.65]
+        # log(f"Valide blokken onder threshold < 0.65: {len(valid_nodes)}")
+
+        # overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
+        # log(f"Lexical overlap: {overlap}")
+
+        # if overlap < 1 and service is None:
+        #     log("Geen antwoord: geen of te weinig overlap.")
+        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
+        #     continue
+
+        # min_node_count = 3
+
+        # if len(valid_nodes) < min_node_count:
+        #     log("Geen antwoord: onvoeldoende relevante blokken gevonden.")
+        #     print(f"\nDEBUG: Slechts {len(valid_nodes)} relevant(e) blok(ken) gevonden. Dit is onvoldoende.")
+        #     continue
+        
+        # valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
+        # valid_nodes = valid_nodes[:8]
+        # log("Chunks gebruikt for het antwoord:")
+        # for node in valid_nodes:
+        #     source = node.node.metadata.get("source_file")
+        #     log(f"score {node.score:.3f} | {source}")
 
         context = build_context(valid_nodes)
         debug_context(context)
