@@ -7,6 +7,7 @@ from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core.schema import QueryBundle
 import chromadb
 import re
+from sentence_transformers import CrossEncoder
 
 
 DEBUG = True
@@ -54,6 +55,12 @@ reranker = SentenceTransformerRerank(
     model="BAAI/bge-reranker-v2-m3",
     top_n=6
 )
+
+# Europees alternatief (minder geheugen, veel langere uitvoering, minder goede output)
+# reranker = SentenceTransformerRerank(
+#     model="jinaai/jina-reranker-v2-base-multilingual",
+#     top_n=6
+# )
 
 def build_context(nodes):
 
