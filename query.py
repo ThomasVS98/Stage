@@ -163,7 +163,7 @@ def ask_question(query: str):
     service = detect_service(query)
 
     retriever = index.as_retriever(
-        similarity_top_k=12,
+        similarity_top_k=20,
         vector_store_query_mode="mmr",
         mmr_threshold=0.5,
         filters=MetadataFilters(
@@ -178,29 +178,45 @@ def ask_question(query: str):
             "answer": "Ik heb niet genoeg informatie.",
             "sources": []
         }
-
-    scores = [n.score for n in all_nodes if n.score is not None]
-
-    valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.70]
-
-    overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
-
-    if overlap < 1:
+    
+    valid_nodes = reranker.postprocess_nodes(
+            all_nodes,
+            query_bundle=QueryBundle(query_str=query)
+        )
+    
+    if not valid_nodes or valid_nodes[0].score < 0.35:
+        log(f"[API] Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
         return {
-            "answer": "Ik heb niet genoeg informatie.",
+            "answer": "Ik heb niet genoeg informatie om deze vraag te beantwoorden. Er is mogelijk een intake noodzakelijk.",
             "sources": []
         }
 
-    min_node_count = 6
+    best_score = valid_nodes[0].score
+    log(f"[API] Relevantie gevonden! Best score: {best_score:.4f}")
+    log(f"[API] Top bron: {valid_nodes[0].node.metadata.get('source_file')}")
 
-    if len(valid_nodes) < min_node_count:
-        return {
-            "answer": "Ik heb niet genoeg informatie.",
-            "sources": []
-        }
+    # scores = [n.score for n in all_nodes if n.score is not None]
 
-    valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
-    valid_nodes = valid_nodes[:10]
+    # valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.70]
+
+    # overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
+
+    # if overlap < 1:
+    #     return {
+    #         "answer": "Ik heb niet genoeg informatie.",
+    #         "sources": []
+    #     }
+
+    # min_node_count = 6
+
+    # if len(valid_nodes) < min_node_count:
+    #     return {
+    #         "answer": "Ik heb niet genoeg informatie.",
+    #         "sources": []
+    #     }
+
+    # valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
+    # valid_nodes = valid_nodes[:10]
 
     context = build_context(valid_nodes)
 
