@@ -45,6 +45,12 @@ def load_index():
 
 index = load_index()
 
+def reload_index():
+    """Forceert het herladen van de index na een ingestie."""
+    global index
+    index = load_index()
+    print("[QUERY] Index succesvol herladen.")
+
 llm = Ollama(
     model="llama3.2:3b", #mistral:7b
     request_timeout=120,

@@ -91,8 +91,7 @@ def build_index(documents):
     # embedding model definiëren
     embed_model = HuggingFaceEmbedding(
         model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2", #intfloat/multilingual-e5-base
-        normalize=True,
-        include_metadata=True
+        normalize=True
     )
 
     # chroma
