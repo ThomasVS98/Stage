@@ -62,6 +62,11 @@ reranker = SentenceTransformerRerank(
     top_n=6
 )
 
+# reranker = SentenceTransformerRerank(
+#     model="cross-encoder/ms-marco-MiniLM-L12-v2",
+#     top_n=6
+# )
+
 # Europees alternatief (minder geheugen, veel langere uitvoering, minder goede output)
 # reranker = SentenceTransformerRerank(
 #     model="jinaai/jina-reranker-v2-base-multilingual",
