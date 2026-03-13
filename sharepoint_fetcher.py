@@ -106,10 +106,8 @@ def fetch_all_sharepoint_pages(site_id, site_label):
                                 text, links = clean_html(raw_html)
                                 content_parts.append(text)
                                 all_links.extend(links)
-
                 # Voeg alles samen met een witregel voor leesbaarheid
                 full_page_text = title + "\n\n" + "\n\n".join(content_parts)
-                  
 
             final_data.append({
                 "content": full_page_text.strip(),
@@ -118,10 +116,8 @@ def fetch_all_sharepoint_pages(site_id, site_label):
                     "source_id": page_id,
                     "title": title,
                     "url": url,
-                    "last_modified": page.get("lastModifiedDateTime"),
                     "doc_type": "webpage",
                     "site_label": site_label,
-                    "related_links": all_links
                 }
             })
             print(f"Ingehaald: {title}")
@@ -177,7 +173,6 @@ def fetch_sharepoint_files(site_id, site_label):
                             "filename": name,
                             "url": item.get("webUrl"),
                             "download_url": item.get("@microsoft.graph.downloadUrl"),
-                            "last_modified": item.get("lastModifiedDateTime"),
                             "doc_type": "file",
                             "site_label": site_label
                         }

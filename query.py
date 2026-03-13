@@ -184,9 +184,10 @@ def ask_question(query: str):
         similarity_top_k=20,
         vector_store_query_mode="mmr",
         mmr_threshold=0.5,
-        filters=MetadataFilters(
-            filters=[ExactMatchFilter(key="service", value=service)]
-        ) if service else None
+        # filters=MetadataFilters(
+        #     filters=[ExactMatchFilter(key="service", value=service)]
+        # ) if service else None
+        filters=None
     )
 
     all_nodes = retriever.retrieve(query)
@@ -270,9 +271,10 @@ def main():
             similarity_top_k=20,
             vector_store_query_mode="mmr",
             mmr_threshold=0.5,
-            filters=MetadataFilters(
-                filters=[ExactMatchFilter(key="service", value=service)]
-            ) if service else None
+            # filters=MetadataFilters(
+            #     filters=[ExactMatchFilter(key="service", value=service)]
+            # ) if service else None
+            filters=None
         )
             
         all_nodes = retriever.retrieve(query)
