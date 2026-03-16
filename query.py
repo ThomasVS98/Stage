@@ -53,7 +53,7 @@ def reload_index():
 
 llm = Ollama(
     model="llama3.2:3b", #mistral:7b
-    request_timeout=120,
+    request_timeout=300,
     context_window=4096
 )
 
@@ -67,12 +67,6 @@ reranker = SentenceTransformerRerank(
 #     top_n=6
 # )
 
-# Europees alternatief (minder geheugen, veel langere uitvoering, minder goede output)
-# reranker = SentenceTransformerRerank(
-#     model="jinaai/jina-reranker-v2-base-multilingual",
-#     top_n=6
-# )
-
 def build_context(nodes):
 
     context = ""
@@ -82,13 +76,15 @@ def build_context(nodes):
         text = node.node.get_text()
         metadata = node.node.metadata
 
-        title = metadata.get("title")
-        source = metadata.get("source_file")
+        title = metadata.get("title", "Geen titel")
+        source = metadata.get("source", "Geen bron")
+        url = metadata.get("url", "Geen URL")
 
         context += f"""
         [DOCUMENT]
         Bron: {source}      
         Titel: {title}
+        URL: {url}
 
         Tekst:
         {text}
@@ -109,7 +105,7 @@ def ask_llm(llm, context, query):
     3.Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
     4.Alleen als er TOTAAL geen informatie over het onderwerp in de context staat, zeg je: "ik heb niet genoeg informatie".
     5.GEEF EEN VOLLEDIG ANTWOORD: Noem specifieke voorbeelden, knoppen of situaties die in de tekst staan (zoals apparaten, bestandstypes of specifieke scenario's).
-    6.BELANGRIJK: De onderstaande context bevat informatie uit MEERDERE documenten. Scan ALLE documenten hieronder om een compleet overzicht te geven.
+    6.VERBIEDER: Gebruik GEEN termen als "Document 1", "Bron X" of "het eerste document" in je tekst.
 
     Context:
     {context}
@@ -129,64 +125,26 @@ def show_sources(nodes):
 
     for node in nodes:
         
-        metadata = node.node.metadata
-        source = metadata.get("source_file")
-        urls = metadata.get("urls")
+        meta = node.node.metadata
+        title = meta.get("title", "Geen titel")
+        url = meta.get("url")
 
-        if source and source not in shown:
-
-            print(source)
-            if urls:
-                for url in urls.split(" | "):
-                    print(url)
-            print()
-
-            shown.add(source)
-
-def detect_service(query):
-
-    query = query.lower()
-
-    if "kaltura" in query:
-        return "kaltura"
-    
-    if "proctorio" in query:
-        return "proctorio"
-
-    return None
-
-
-_DUTCH_STOPWORDS = {
-    "de","het","een","en","of","voor","van","op","in","met","naar","aan","bij","door","over",
-    "ik","je","jij","u","uw","we","wij","ze","zij","mijn","me","maar","niet","wel",
-    "hoe","wat","waar","wanneer","waarom","kan","kun","kunnen","is","zijn","worden","doen",
-    "vandaag","graag","even"
-}
-
-def _tokens(s: str) -> set[str]:
-    parts = re.findall(r"[a-zA-Z0-9]+", (s or "").lower())
-    return {p for p in parts if len(p) >= 3 and p not in _DUTCH_STOPWORDS}
-
-def lexical_overlap_count(query: str, nodes, max_nodes: int = 10) -> int:
-    q = _tokens(query)
-    if not q:
-        return 0
-    text = " ".join(n.node.get_text().lower() for n in nodes[:max_nodes])
-    t = _tokens(text)
-    return len(q.intersection(t))
+        identifier = url if url else title
+        if identifier not in shown:
+            print(f"- {title}")
+            if url:
+                print(f"  Link: {url}")
+            shown.add(identifier)
 
 #functie voor FastAPI
 def ask_question(query: str):
 
-    service = detect_service(query)
+    log(f"[API] Ontvangen vraag: {query}")
 
     retriever = index.as_retriever(
         similarity_top_k=20,
-        vector_store_query_mode="mmr",
-        mmr_threshold=0.5,
-        # filters=MetadataFilters(
-        #     filters=[ExactMatchFilter(key="service", value=service)]
-        # ) if service else None
+        #vector_store_query_mode="mmr",
+        #mmr_threshold=0.5,
         filters=None
     )
 
@@ -212,30 +170,7 @@ def ask_question(query: str):
 
     best_score = valid_nodes[0].score
     log(f"[API] Relevantie gevonden! Best score: {best_score:.4f}")
-    log(f"[API] Top bron: {valid_nodes[0].node.metadata.get('source_file')}")
-
-    # scores = [n.score for n in all_nodes if n.score is not None]
-
-    # valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.70]
-
-    # overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
-
-    # if overlap < 1:
-    #     return {
-    #         "answer": "Ik heb niet genoeg informatie.",
-    #         "sources": []
-    #     }
-
-    # min_node_count = 6
-
-    # if len(valid_nodes) < min_node_count:
-    #     return {
-    #         "answer": "Ik heb niet genoeg informatie.",
-    #         "sources": []
-    #     }
-
-    # valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
-    # valid_nodes = valid_nodes[:10]
+    log(f"[API] Top bron: {valid_nodes[0].node.metadata.get('url')}")
 
     context = build_context(valid_nodes)
 
@@ -245,10 +180,16 @@ def ask_question(query: str):
     for token in response:
         answer += token.delta
 
-    sources = list(
-        set(node.node.metadata.get("source_file") for node in valid_nodes)
-    )
+    sources = []
 
+    for node in valid_nodes:
+        meta = node.node.metadata
+        title = meta.get("title")
+        url = meta.get("url")
+        source_str = f"{title} ({url})" if url else title
+        if source_str and source_str not in sources:
+            sources.append(source_str)
+        
     return {
         "answer": answer,
         "sources": sources
@@ -264,16 +205,10 @@ def main():
         if query == "exit":
             break
 
-        service = detect_service(query)
-        log(f"Service filter: {service if service else 'geen'}")
-
         retriever = index.as_retriever(
-            similarity_top_k=20,
-            vector_store_query_mode="mmr",
-            mmr_threshold=0.5,
-            # filters=MetadataFilters(
-            #     filters=[ExactMatchFilter(key="service", value=service)]
-            # ) if service else None
+            similarity_top_k=25,
+            #vector_store_query_mode="mmr",
+            #mmr_threshold=0.5,
             filters=None
         )
             
@@ -292,65 +227,7 @@ def main():
                 
         log("Chunks geselecteerd door Reranker:")
         for node in valid_nodes:
-            log(f"score {node.score:.3f} | {node.node.metadata.get('source_file')}")
-
-        # print("\nDEBUG scores:")
-        # for node in all_nodes[:10]:
-        #     print(
-        #         f"distance={node.score:.3f} | similarity={1-node.score:.3f} | {node.node.metadata.get('source_file')}"
-        #         )
-
-        # if not all_nodes:
-        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-        #     continue
-
-        # scores = [n.score for n in all_nodes if n.score is not None]
-        # if not scores:
-        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-        #     continue
-
-        # best_score = min(scores)
-        # scores_sorted = sorted(scores)
-        # avg_score = sum(scores_sorted[:5]) / min(len(scores_sorted), 5)
-        # log(f"Beste score: {best_score:.3f}")
-        # log(f"Gemiddelde score (top5): {avg_score:.3f}")
-
-        # if best_score >= 0.70:
-        #     log("Geen antwoord: beste score boven threshold.")
-        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-        #     continue
-
-        # if avg_score >= 0.75:
-        #     log("Geen antwoord: gemiddelde score te hoog.")
-        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-        #     continue
-
-
-
-        # valid_nodes = [n for n in all_nodes if n.score is not None and n.score < 0.65]
-        # log(f"Valide blokken onder threshold < 0.65: {len(valid_nodes)}")
-
-        # overlap = lexical_overlap_count(query, valid_nodes, max_nodes=10)
-        # log(f"Lexical overlap: {overlap}")
-
-        # if overlap < 1 and service is None:
-        #     log("Geen antwoord: geen of te weinig overlap.")
-        #     print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden.\n")
-        #     continue
-
-        # min_node_count = 3
-
-        # if len(valid_nodes) < min_node_count:
-        #     log("Geen antwoord: onvoeldoende relevante blokken gevonden.")
-        #     print(f"\nDEBUG: Slechts {len(valid_nodes)} relevant(e) blok(ken) gevonden. Dit is onvoldoende.")
-        #     continue
-        
-        # valid_nodes.sort(key=lambda n: n.score if n.score is not None else 1.0)
-        # valid_nodes = valid_nodes[:8]
-        # log("Chunks gebruikt for het antwoord:")
-        # for node in valid_nodes:
-        #     source = node.node.metadata.get("source_file")
-        #     log(f"score {node.score:.3f} | {source}")
+            log(f"score {node.score:.3f} | {node.node.metadata.get('url')}")
 
         context = build_context(valid_nodes)
         debug_context(context)

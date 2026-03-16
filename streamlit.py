@@ -10,24 +10,26 @@ API_BASE_URL = os.getenv("API_BASE_URL")
 # Admin functies
 with st.sidebar:
     st.title("⚙️ Beheer")
-    st.info("Voeg nieuwe bestanden toe aan de 'data' map en klik hieronder om de database bij te werken.")
+    st.info("Klik hieronder om de SharePoint pagina's en bestanden opnieuw te synchroniseren.")
     
-    if st.button("🔄 Database Indexeren"):
-        with st.spinner("Bezig met indexeren van documenten... dit kan even duren."):
+    if st.button("🔄 Database Synchroniseren"):
+        with st.spinner("Bezig met ophalen van SharePoint data... dit kan enkele minuten duren."):
             try:
-                # ingest endpoint
-                res = requests.post(f"{API_BASE_URL}/ingest", timeout=300) 
+                res = requests.post(f"{API_BASE_URL}/ingest", timeout=600) 
+                
                 if res.status_code == 200:
-                    st.success("✅ Database succesvol bijgewerkt!")
-                    # wis  cache zodat nieuwe index geladen wordt
+                    status_msg = res.json().get('message', 'Database succesvol bijgewerkt!')
+                    st.success(f"✅ {status_msg}")
                     st.cache_resource.clear()
                 else:
-                    st.error(f"Fout: {res.json().get('detail', 'Onbekende fout')}")
+                    error_detail = res.json().get('detail', 'Onbekende fout')
+                    st.error(f"Fout: {error_detail}")
+            except requests.exceptions.Timeout:
+                st.warning("⚠️ De server is nog bezig met indexeren, maar de verbinding met de interface is verbroken. Wacht een paar minuten en stel dan je vraag.")
             except Exception as e:
                 st.error(f"Verbindingsfout: {str(e)}")
-
-
-#Hoofscherm
+    
+#Hoofdscherm
 st.title("IT Assistent")
 
 question = st.text_input("Stel een vraag")
