@@ -1,11 +1,16 @@
-import streamlit as st
-import requests
 import os
+import requests
 from dotenv import load_dotenv
+import streamlit as st
 
 load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL")
+
+if "answer" not in st.session_state:
+    st.session_state.answer = None
+if "sources" not in st.session_state:
+    st.session_state.sources = []
 
 # Admin functies
 with st.sidebar:
@@ -32,21 +37,25 @@ with st.sidebar:
 #Hoofdscherm
 st.title("IT Assistent")
 
-question = st.text_input("Stel een vraag")
+with st.form("vraag_form"):
+    question = st.text_input("Stel een vraag")
+    submitted = st.form_submit_button("Vraag stellen")
 
-if st.button("Vraag stellen"):
+if submitted:
     if question:
         with st.spinner("Bezig met het beantwoorden van de vraag..."):
             response = requests.post(
                 f'{API_BASE_URL}/ask',
                 json={"question": question}
             )
-
         data = response.json()
-        st.subheader("Antwoord:")
-        st.write(data["answer"])
+        st.session_state.answer = data["answer"]
+        st.session_state.sources = data["sources"]
 
-        if data["sources"]:
+if st.session_state.answer:
+        st.subheader("Antwoord:")
+        st.write(st.session_state.answer)
+        if st.session_state.sources:
             st.subheader("Bronnen:")
-            for source in data["sources"]:
+            for source in st.session_state.sources:
                 st.write(f"- {source}")

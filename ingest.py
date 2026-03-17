@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from llama_index.core import Document, SimpleDirectoryReader, VectorStoreIndex, StorageContext
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core.node_parser import SentenceSplitter
+from llama_index.core.node_parser import SentenceSplitter, HierarchicalNodeParser, get_leaf_nodes
 from sharepoint_fetcher import fetch_all_sharepoint_pages, fetch_sharepoint_files, download_sharepoint_file
 import shutil
 
@@ -37,14 +37,14 @@ def load_all_sharepoint_data():
         sp_pages = fetch_all_sharepoint_pages(site_id, label)
         if sp_pages:
           for page in sp_pages:
-            print(f"DEBUG: Pagina {page['metadata']['title']} heeft {len(page['content'])} karakters.")
-            full_text = f"PAGINA: {page['metadata']['title']}\n\n{page['content']}"
+            full_text = page["content"]
             new_doc = Document(
                text = full_text,
                metadata = page["metadata"]
             )
             new_doc.metadata["source_type"] = "sharepoint_page"
             new_doc.excluded_embed_metadata_keys = ["url","source_id"]
+            new_doc.excluded_llm_metadata_keys = ["url", "source_id", "file_name"]
             all_docs.append(new_doc)
         else:
             print(f"Geen pagina's gevonden voor {label}")
@@ -71,15 +71,14 @@ def load_all_sharepoint_data():
 
                 clean_meta = meta.copy()
                 clean_meta.pop("download_url", None)
-
-                contextualized_text = f"BRONBESTAND: {filename}\n\n{full_content}"
                 
                 new_doc = Document(
-                    text = contextualized_text,
+                    text = full_content,
                     metadata = clean_meta
                 )
                 new_doc.metadata["source_type"] = "sharepoint_file"
                 new_doc.excluded_embed_metadata_keys = ["url", "download_url", "source_id"]
+                new_doc.excluded_llm_metadata_keys = ["url", "source_id", "filename"]
                 all_docs.append(new_doc)
             else:
                 print(f"Download mislukt voor {filename}")
@@ -90,8 +89,17 @@ def build_index(documents):
     if not documents:
         print("Geen documenten om te indexeren")
         return
+    
+    for doc in documents:
+        if "source_id" in doc.metadata:
+            doc.doc_id = doc.metadata["source_id"]
             
     print(f"\n Indexeren van {len(documents)} documenten naar ChromaDB...")
+
+    if os.path.exists("./storage"):
+        shutil.rmtree("./storage")
+        print("Bestaande storage folder verwijderd voor schone start.")
+
 
     embed_model = HuggingFaceEmbedding(
         model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
@@ -114,16 +122,35 @@ def build_index(documents):
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-    index = VectorStoreIndex.from_documents(
-        documents,
+    # index = VectorStoreIndex.from_documents(
+    #     documents,
+    #     storage_context=storage_context,
+    #     embed_model=embed_model,
+    #     transformations=[SentenceSplitter(chunk_size=550, chunk_overlap=80)],
+    #     show_progress=True
+    # )
+
+    node_parser = HierarchicalNodeParser.from_defaults(
+        chunk_sizes=[1200,350]
+    )
+
+    nodes = node_parser.get_nodes_from_documents(documents)
+    leaf_nodes = get_leaf_nodes(nodes)
+
+    storage_context.docstore.add_documents(nodes)
+
+    index = VectorStoreIndex(
+        leaf_nodes,
         storage_context=storage_context,
         embed_model=embed_model,
-        transformations=[SentenceSplitter(chunk_size=550, chunk_overlap=80)],
         show_progress=True
     )
 
+    storage_context.persist(persist_dir="./storage")
+
     print(f"\n Indexering klaar")
     print(f"Totaal aantal chuncks in vector store: {chroma_collection.count()}")
+    print("Docstore size:", len(storage_context.docstore.docs))
 
     return index
 

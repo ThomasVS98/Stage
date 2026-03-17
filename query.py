@@ -5,6 +5,9 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.ollama import Ollama
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core.schema import QueryBundle
+from llama_index.core.retrievers import AutoMergingRetriever
+from llama_index.core import StorageContext, load_index_from_storage
+from llama_index.core.schema import NodeWithScore
 import chromadb
 import re
 from sentence_transformers import CrossEncoder
@@ -23,8 +26,6 @@ def log(msg):
     if DEBUG:
         print(f"[RAG] {msg}")
 
-
-
 def load_index():
 
     embed_model = HuggingFaceEmbedding(
@@ -36,10 +37,23 @@ def load_index():
     chroma_collection = chroma_client.get_collection("docs")
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
 
-    index = VectorStoreIndex.from_vector_store(
-        vector_store,
-        embed_model=embed_model,
+    
+    storage_context = StorageContext.from_defaults(
+        vector_store=vector_store,
+        persist_dir="./storage"
+        )
+
+    index = load_index_from_storage(
+        storage_context=storage_context,
+        embed_model=embed_model
     )
+
+    # index = VectorStoreIndex.from_vector_store(
+    #     vector_store,
+    #     embed_model=embed_model
+    # )
+
+    print("Docstore size:", len(storage_context.docstore.docs))
 
     return index
 
@@ -54,12 +68,13 @@ def reload_index():
 llm = Ollama(
     model="llama3.2:3b", #mistral:7b
     request_timeout=300,
-    context_window=4096
+    context_window=6144,
+    temperature=0
 )
 
 reranker = SentenceTransformerRerank(
     model="BAAI/bge-reranker-v2-m3",
-    top_n=6
+    top_n=3
 )
 
 # reranker = SentenceTransformerRerank(
@@ -73,7 +88,7 @@ def build_context(nodes):
 
     for node in nodes:
 
-        text = node.node.get_text()
+        text = node.node.get_content()
         metadata = node.node.metadata
 
         title = metadata.get("title", "Geen titel")
@@ -104,8 +119,10 @@ def ask_llm(llm, context, query):
     2.Gebruik enkel expliciete informatie; maak onder geen omstandigheden aannames of eigen interpretaties.
     3.Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
     4.Alleen als er TOTAAL geen informatie over het onderwerp in de context staat, zeg je: "ik heb niet genoeg informatie".
-    5.GEEF EEN VOLLEDIG ANTWOORD: Noem specifieke voorbeelden, knoppen of situaties die in de tekst staan (zoals apparaten, bestandstypes of specifieke scenario's).
-    6.VERBIEDER: Gebruik GEEN termen als "Document 1", "Bron X" of "het eerste document" in je tekst.
+    5.Gebruik GEEN verwijzingen naar documenten, titels of bronnen in je antwoord.
+    6.Noem tijdslimieten, aantallen, voorwaarden en volgorde precies zoals ze in de context staan. Geef procedures en deadlines letterlijk weer.
+    7.Schrijf een direct antwoord voor de gebruiker. Gebruik NOOIT formuleringen zoals "volgens de context", "in de tekst staat", "het document zegt" of gelijkaardige bronverwijzingen.
+    8.Geef NOOIT je eigen mening of interpretaties. Volg de informatie van de context.
 
     Context:
     {context}
@@ -141,11 +158,17 @@ def ask_question(query: str):
 
     log(f"[API] Ontvangen vraag: {query}")
 
-    retriever = index.as_retriever(
+    base_retriever = index.as_retriever(
         similarity_top_k=20,
         #vector_store_query_mode="mmr",
         #mmr_threshold=0.5,
         filters=None
+    )
+
+    retriever = AutoMergingRetriever(
+        base_retriever,
+        storage_context=index.storage_context,
+        verbose=True
     )
 
     all_nodes = retriever.retrieve(query)
@@ -161,7 +184,7 @@ def ask_question(query: str):
             query_bundle=QueryBundle(query_str=query)
         )
     
-    if not valid_nodes or valid_nodes[0].score < 0.35:
+    if not valid_nodes or valid_nodes[0].score < 0.30:
         log(f"[API] Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
         return {
             "answer": "Ik heb niet genoeg informatie om deze vraag te beantwoorden. Er is mogelijk een intake noodzakelijk.",
@@ -205,22 +228,37 @@ def main():
         if query == "exit":
             break
 
-        retriever = index.as_retriever(
-            similarity_top_k=25,
-            #vector_store_query_mode="mmr",
-            #mmr_threshold=0.5,
+        # retriever = index.as_retriever(
+        #     similarity_top_k=20,
+        #     #vector_store_query_mode="mmr",
+        #     #mmr_threshold=0.5,
+        #     filters=None
+        # )
+
+        base_retriever = index.as_retriever(
+            similarity_top_k=30,
             filters=None
+        )
+
+        retriever = AutoMergingRetriever(
+            base_retriever,
+            storage_context=index.storage_context,
+            verbose=True
         )
             
         all_nodes = retriever.retrieve(query)
         log(f"Opgehaalde blokken: {len(all_nodes)}")
+
+        for node in all_nodes:
+            log(f"Retrieved node: {node.node.metadata.get('title')}")
+            log(f"Node ID: {node.node.node_id} | Text length: {len(node.node.get_content())}")
 
         valid_nodes = reranker.postprocess_nodes(
             all_nodes,
             query_bundle=QueryBundle(query_str=query)
         )
 
-        if not valid_nodes or valid_nodes[0].score < 0.35:
+        if not valid_nodes or valid_nodes[0].score < 0.18:
             log(f"Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
             print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden. Intake opstarten...\n")
             continue
