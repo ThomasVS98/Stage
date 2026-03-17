@@ -7,6 +7,10 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core.node_parser import SentenceSplitter, HierarchicalNodeParser, get_leaf_nodes
 from sharepoint_fetcher import fetch_all_sharepoint_pages, fetch_sharepoint_files, download_sharepoint_file
+from docling.document_converter import DocumentConverter, PdfFormatOption
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.base_models import InputFormat
+from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
 import shutil
 
 load_dotenv()
@@ -14,9 +18,42 @@ load_dotenv()
 LMS_SITE_ID = os.getenv("LMS_SITE_ID")
 SERVICE_CATALOG_ID = os.getenv("SERVICE_CATALOG_ID")
 
+DEBUG_DOCLING = True
+DEBUG_FILE = None
+
+pipeline_options = PdfPipelineOptions()
+pipeline_options.do_ocr = False
+pipeline_options.do_table_structure = True
+
+converter = DocumentConverter(
+    format_options={
+        InputFormat.PDF: PdfFormatOption(
+            pipeline_options=pipeline_options,
+            backend = PyPdfiumDocumentBackend
+        )
+    }
+)
+
+def extract_with_docling(file_path:str) -> str:
+    try:
+        result = converter.convert(file_path)
+
+        text = result.document.export_to_markdown()
+
+        return text.strip()
+    
+    except Exception as e:
+        print(f"[DOCLING] Fout bij het verwerken van {file_path}: {e}")
+        return ""
+
 def clean_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n\s*\n", "\n", text) 
+    return text.strip()
+
+def clean_markdown(text:str) -> str:
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"<!-- image -->", "", text)
     return text.strip()
 
 def extract_urls(text):
@@ -44,7 +81,7 @@ def load_all_sharepoint_data():
             )
             new_doc.metadata["source_type"] = "sharepoint_page"
             new_doc.excluded_embed_metadata_keys = ["url","source_id"]
-            new_doc.excluded_llm_metadata_keys = ["url", "source_id", "file_name"]
+            new_doc.excluded_llm_metadata_keys = ["url", "source_id"]
             all_docs.append(new_doc)
         else:
             print(f"Geen pagina's gevonden voor {label}")
@@ -63,11 +100,18 @@ def load_all_sharepoint_data():
 
             print(f"Bezig met ophalen: {filename}...")
             if download_sharepoint_file(dl_url, file_path):
-                reader = SimpleDirectoryReader(input_files=[file_path])
-                file_docs = reader.load_data()
-
-                full_content = "\n\n".join([d.text for d in file_docs])
-                full_content = clean_text(full_content)
+                if filename.lower().endswith(".pdf"):
+                    print(f"[DOCLING] Verwerken met Docling: {filename}")
+                    full_content = extract_with_docling(file_path)
+                    full_content = clean_markdown(full_content)
+                    if DEBUG_DOCLING and (DEBUG_FILE is None or filename == DEBUG_FILE):
+                        print(f"\n--- DOCLING DEBUG: {filename} ---\n")
+                        print(full_content[:500])
+                else:
+                    reader = SimpleDirectoryReader(input_files=[file_path])
+                    file_docs = reader.load_data()
+                    full_content = "\n\n".join([d.text for d in file_docs])
+                    full_content = clean_text(full_content)
 
                 clean_meta = meta.copy()
                 clean_meta.pop("download_url", None)

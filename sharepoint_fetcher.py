@@ -139,14 +139,18 @@ def fetch_sharepoint_files(site_id, site_label):
     token = requests.post(token_url, data=token_data).json().get("access_token")
     headers = {"Authorization": f"Bearer {token}"}
 
-    drive_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/root/children"
-    res_files = requests.get(drive_url, headers=headers)
-
     final_files = []
     folders_to_process = ["root"]
+    visited_folders = set()
+    seen_files = set()
 
     while folders_to_process:
         current_folder = folders_to_process.pop(0)
+
+        if current_folder in visited_folders:
+            continue
+        visited_folders.add(current_folder)
+
         url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/{current_folder}/children"
 
         if current_folder == "root":
@@ -162,6 +166,10 @@ def fetch_sharepoint_files(site_id, site_label):
             if "folder" in item:
                 folders_to_process.append(item["id"])
             elif "file" in item:
+                file_id = item["id"]
+                if file_id in seen_files:
+                    continue
+                seen_files.add(file_id)
                 name = item["name"]
                 if name.lower().endswith((".pdf", ".docx", ".xlsx", ".pptx",".txt")):
                     final_files.append({
