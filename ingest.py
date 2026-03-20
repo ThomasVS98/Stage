@@ -7,6 +7,7 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core.node_parser import SentenceSplitter
 from sharepoint_fetcher import fetch_all_sharepoint_pages, fetch_sharepoint_files, download_sharepoint_file
+from topdesk_fetcher import fetch_topdesk_documents
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.datamodel.base_models import InputFormat
@@ -57,13 +58,7 @@ def clean_markdown(text:str) -> str:
     text = re.sub(r"<!-- image -->", "", text)
     return text.strip()
 
-def extract_urls(text):
-    """Haalt URLs uit platte tekst (vooral nuttig voor SharePoint PDF/Docs)."""
-    url_pattern = r"https?://[^\s]+"
-    urls = re.findall(url_pattern, text)
-    return [url.rstrip(".,;:!?)\"'") for url in urls]
-
-def load_all_sharepoint_data():
+def load_all_data():
     all_docs = []
     print("Sharepoint pagina's ophalen")
     sites = [
@@ -130,6 +125,14 @@ def load_all_sharepoint_data():
             else:
                 print(f"Download mislukt voor {filename}")
         
+    print("Topdesk documenten ophalen")
+    try:
+        topdesk_docs = fetch_topdesk_documents()
+        print(f"Topdesk documenten gevonden: {len(topdesk_docs)}")
+        all_docs.extend(topdesk_docs)
+    except Exception as e:
+        print(f"Topdesk ophalen mislukt: {e}")
+
     return all_docs
 
 def build_index(documents):
@@ -189,7 +192,7 @@ def cleanup_temp_files(temp_dir="./temp_sharepoint"):
 
 if __name__ == "__main__":
 
-    docs = load_all_sharepoint_data()
+    docs = load_all_data()
     if docs:
         build_index(docs)
         cleanup_temp_files()

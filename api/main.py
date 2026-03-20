@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from query import ask_question, reload_index
-from ingest import build_index, load_all_sharepoint_data, cleanup_temp_files
+from ingest import build_index, load_all_data, cleanup_temp_files
 
 
 app = FastAPI()
@@ -23,7 +23,7 @@ def ask(q:Question):
 async def trigger_ingest():
     try:
         print("[API] Ingestie gestart...")
-        documents = load_all_sharepoint_data()
+        documents = load_all_data()
         if not documents:
             return {"status": "warning", "message": "Geen documenten gevonden om te indexeren"}
 

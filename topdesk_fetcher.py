@@ -94,7 +94,8 @@ def topdesk_items_to_documents(items:list[dict]) -> list[Document]:
             "source": "topdesk",
             "source_type": "topdesk_kb",
             "source_id": item.get("id"),
-            "number": item.get("number")
+            "number": item.get("number"),
+            "title": title
         }
 
         doc = Document(text=full_text, metadata=meta)

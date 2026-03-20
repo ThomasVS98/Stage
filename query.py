@@ -113,13 +113,15 @@ def ask_llm(llm, context, query):
     1. Antwoord uitsluitend op basis van de onderstaande context.
     2. Gebruik enkel expliciete informatie; maak onder geen omstandigheden aannames of eigen interpretaties.
     3. Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
-    4. Als er onvoldoende relevante informatie over het onderwerp in de context staat, zeg je: "ik heb niet genoeg informatie".
+    4. Zeg alleen "ik heb niet genoeg informatie" wanneer er GEEN bruikbare informatie in de context staat om de vraag praktisch te beantwoorden.
     5. Gebruik GEEN verwijzingen naar documenten, titels of bronnen in je antwoord.
     6. Noem tijdslimieten, aantallen, voorwaarden en volgorde precies zoals ze in de context staan. Geef procedures en deadlines letterlijk weer.
     7. Schrijf een direct antwoord voor de gebruiker. Gebruik NOOIT formuleringen zoals "volgens de context", "in de tekst staat", "het document zegt" of gelijkaardige bronverwijzingen.
     8. Geef NOOIT je eigen mening of interpretaties. Volg de informatie van de context.
     9. Geef een volledig antwoord: neem alle relevante stappen, opties, uitzonderingen en waarschuwingen uit de context op. Laat niets zomaar weg.
     10. Structureer je antwoord in korte bullets wanneer er meerdere stappen/voorwaarden zijn.
+    11. Als de context wel bruikbare informatie bevat, geef dan meteen een concreet antwoord zonder disclaimers over ontbrekende details.
+        De rest kan blijven.
 
     Context:
     {context}
@@ -164,7 +166,7 @@ def ask_question(query: str):
         }
     
     retriever = idx.as_retriever(
-            similarity_top_k=20,
+            similarity_top_k=12,
             #vector_store_query_mode="mmr",
             #mmr_threshold=0.5,
             filters=None
@@ -183,7 +185,9 @@ def ask_question(query: str):
             query_bundle=QueryBundle(query_str=query)
         )
     
-    if not valid_nodes or valid_nodes[0].score < 0.30:
+    valid_nodes = [n for n in valid_nodes if n.score is not None and n.score >= 0.30]
+
+    if not valid_nodes:
         log(f"[API] Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
         return {
             "answer": "Ik heb niet genoeg informatie om deze vraag te beantwoorden. Er is mogelijk een intake noodzakelijk.",
@@ -253,7 +257,9 @@ def main():
             query_bundle=QueryBundle(query_str=query)
         )
 
-        if not valid_nodes or valid_nodes[0].score < 0.18:
+        valid_nodes = [n for n in valid_nodes if n.score is not None and n.score >= 0.30]
+
+        if not valid_nodes:
             log(f"Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
             print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden. Intake opstarten...\n")
             continue
