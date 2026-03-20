@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from llama_index.core import Document, SimpleDirectoryReader, VectorStoreIndex, StorageContext
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.core.node_parser import SentenceSplitter, HierarchicalNodeParser, get_leaf_nodes
+from llama_index.core.node_parser import SentenceSplitter
 from sharepoint_fetcher import fetch_all_sharepoint_pages, fetch_sharepoint_files, download_sharepoint_file
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.pipeline_options import PdfPipelineOptions
@@ -30,7 +30,8 @@ converter = DocumentConverter(
         InputFormat.PDF: PdfFormatOption(
             pipeline_options=pipeline_options,
             backend = PyPdfiumDocumentBackend
-        )
+        ),
+        InputFormat.DOCX: None
     }
 )
 
@@ -48,7 +49,7 @@ def extract_with_docling(file_path:str) -> str:
 
 def clean_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n\s*\n", "\n", text) 
+    text = re.sub(r"\n\s*\n", "\n\n", text)
     return text.strip()
 
 def clean_markdown(text:str) -> str:
@@ -100,13 +101,15 @@ def load_all_sharepoint_data():
 
             print(f"Bezig met ophalen: {filename}...")
             if download_sharepoint_file(dl_url, file_path):
-                if filename.lower().endswith(".pdf"):
+                if filename.lower().endswith((".pdf", ".docx")):
                     print(f"[DOCLING] Verwerken met Docling: {filename}")
                     full_content = extract_with_docling(file_path)
                     full_content = clean_markdown(full_content)
-                    if DEBUG_DOCLING and (DEBUG_FILE is None or filename == DEBUG_FILE):
-                        print(f"\n--- DOCLING DEBUG: {filename} ---\n")
-                        print(full_content[:500])
+                    full_content = clean_text(full_content)
+
+                    # if DEBUG_DOCLING and (DEBUG_FILE is None or filename == DEBUG_FILE):
+                    #     print(f"\n--- DOCLING DEBUG: {filename} ---\n")
+                    #     print(full_content[:500])
                 else:
                     reader = SimpleDirectoryReader(input_files=[file_path])
                     file_docs = reader.load_data()
@@ -166,35 +169,16 @@ def build_index(documents):
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-    # index = VectorStoreIndex.from_documents(
-    #     documents,
-    #     storage_context=storage_context,
-    #     embed_model=embed_model,
-    #     transformations=[SentenceSplitter(chunk_size=550, chunk_overlap=80)],
-    #     show_progress=True
-    # )
-
-    node_parser = HierarchicalNodeParser.from_defaults(
-        chunk_sizes=[1200,350]
-    )
-
-    nodes = node_parser.get_nodes_from_documents(documents)
-    leaf_nodes = get_leaf_nodes(nodes)
-
-    storage_context.docstore.add_documents(nodes)
-
-    index = VectorStoreIndex(
-        leaf_nodes,
+    index = VectorStoreIndex.from_documents(
+        documents,
         storage_context=storage_context,
         embed_model=embed_model,
+        transformations=[SentenceSplitter(chunk_size=700, chunk_overlap=100)],
         show_progress=True
     )
 
-    storage_context.persist(persist_dir="./storage")
-
     print(f"\n Indexering klaar")
     print(f"Totaal aantal chuncks in vector store: {chroma_collection.count()}")
-    print("Docstore size:", len(storage_context.docstore.docs))
 
     return index
 

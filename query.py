@@ -1,16 +1,11 @@
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.core.vector_stores import MetadataFilters, ExactMatchFilter
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.ollama import Ollama
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core.schema import QueryBundle
-from llama_index.core.retrievers import AutoMergingRetriever
 from llama_index.core import StorageContext, load_index_from_storage
-from llama_index.core.schema import NodeWithScore
 import chromadb
-import re
-from sentence_transformers import CrossEncoder
 
 
 DEBUG = True
@@ -34,34 +29,34 @@ def load_index():
         )
     
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
-    chroma_collection = chroma_client.get_collection("docs")
+    try:
+        chroma_collection = chroma_client.get_collection("docs")
+    except Exception:
+        print("Geen collectie gevonden. Voer eerst ingest uit")
+        return None
+    
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
 
-    
-    storage_context = StorageContext.from_defaults(
-        vector_store=vector_store,
-        persist_dir="./storage"
-        )
 
-    index = load_index_from_storage(
-        storage_context=storage_context,
+    index = VectorStoreIndex.from_vector_store(
+        vector_store,
         embed_model=embed_model
     )
 
-    # index = VectorStoreIndex.from_vector_store(
-    #     vector_store,
-    #     embed_model=embed_model
-    # )
-
-    print("Docstore size:", len(storage_context.docstore.docs))
-
     return index
 
-index = load_index()
+index = None
+
+def get_index():
+    global index
+    if index is None:
+        index = load_index()
+    return index
 
 def reload_index():
     """Forceert het herladen van de index na een ingestie."""
     global index
+    print("[QUERY] Index wordt herladen...")
     index = load_index()
     print("[QUERY] Index succesvol herladen.")
 
@@ -115,14 +110,16 @@ def ask_llm(llm, context, query):
     Je bent een IT-assistent voor de medewerkers van de Thomas More hogeschool.
 
     RICHTLIJNEN:
-    1.Antwoord uitsluitend op basis van de onderstaande context.
-    2.Gebruik enkel expliciete informatie; maak onder geen omstandigheden aannames of eigen interpretaties.
-    3.Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
-    4.Alleen als er TOTAAL geen informatie over het onderwerp in de context staat, zeg je: "ik heb niet genoeg informatie".
-    5.Gebruik GEEN verwijzingen naar documenten, titels of bronnen in je antwoord.
-    6.Noem tijdslimieten, aantallen, voorwaarden en volgorde precies zoals ze in de context staan. Geef procedures en deadlines letterlijk weer.
-    7.Schrijf een direct antwoord voor de gebruiker. Gebruik NOOIT formuleringen zoals "volgens de context", "in de tekst staat", "het document zegt" of gelijkaardige bronverwijzingen.
-    8.Geef NOOIT je eigen mening of interpretaties. Volg de informatie van de context.
+    1. Antwoord uitsluitend op basis van de onderstaande context.
+    2. Gebruik enkel expliciete informatie; maak onder geen omstandigheden aannames of eigen interpretaties.
+    3. Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
+    4. Als er onvoldoende relevante informatie over het onderwerp in de context staat, zeg je: "ik heb niet genoeg informatie".
+    5. Gebruik GEEN verwijzingen naar documenten, titels of bronnen in je antwoord.
+    6. Noem tijdslimieten, aantallen, voorwaarden en volgorde precies zoals ze in de context staan. Geef procedures en deadlines letterlijk weer.
+    7. Schrijf een direct antwoord voor de gebruiker. Gebruik NOOIT formuleringen zoals "volgens de context", "in de tekst staat", "het document zegt" of gelijkaardige bronverwijzingen.
+    8. Geef NOOIT je eigen mening of interpretaties. Volg de informatie van de context.
+    9. Geef een volledig antwoord: neem alle relevante stappen, opties, uitzonderingen en waarschuwingen uit de context op. Laat niets zomaar weg.
+    10. Structureer je antwoord in korte bullets wanneer er meerdere stappen/voorwaarden zijn.
 
     Context:
     {context}
@@ -158,18 +155,20 @@ def ask_question(query: str):
 
     log(f"[API] Ontvangen vraag: {query}")
 
-    base_retriever = index.as_retriever(
-        similarity_top_k=20,
-        #vector_store_query_mode="mmr",
-        #mmr_threshold=0.5,
-        filters=None
-    )
+    idx = get_index()
 
-    retriever = AutoMergingRetriever(
-        base_retriever,
-        storage_context=index.storage_context,
-        verbose=True
-    )
+    if idx is None:
+        return {
+            "answer": "De database is nog niet geïnitialiseerd. Eerst ingest.",
+            "sources": []
+        }
+    
+    retriever = idx.as_retriever(
+            similarity_top_k=20,
+            #vector_store_query_mode="mmr",
+            #mmr_threshold=0.5,
+            filters=None
+        )
 
     all_nodes = retriever.retrieve(query)
 
@@ -228,30 +227,26 @@ def main():
         if query == "exit":
             break
 
-        # retriever = index.as_retriever(
-        #     similarity_top_k=20,
-        #     #vector_store_query_mode="mmr",
-        #     #mmr_threshold=0.5,
-        #     filters=None
-        # )
 
-        base_retriever = index.as_retriever(
-            similarity_top_k=30,
+        idx = get_index()
+        if idx is None:
+            print("⚠️ Eerst ingest uitvoeren")
+            continue
+
+        retriever = idx.as_retriever(
+            similarity_top_k=12,
+            #vector_store_query_mode="mmr",
+            #mmr_threshold=0.5,
             filters=None
-        )
-
-        retriever = AutoMergingRetriever(
-            base_retriever,
-            storage_context=index.storage_context,
-            verbose=True
         )
             
         all_nodes = retriever.retrieve(query)
         log(f"Opgehaalde blokken: {len(all_nodes)}")
 
+
         for node in all_nodes:
             log(f"Retrieved node: {node.node.metadata.get('title')}")
-            log(f"Node ID: {node.node.node_id} | Text length: {len(node.node.get_content())}")
+            node.node.text = node.node.get_content()
 
         valid_nodes = reranker.postprocess_nodes(
             all_nodes,
@@ -262,6 +257,7 @@ def main():
             log(f"Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
             print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden. Intake opstarten...\n")
             continue
+
                 
         log("Chunks geselecteerd door Reranker:")
         for node in valid_nodes:

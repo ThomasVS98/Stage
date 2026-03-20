@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import html
 import urllib.parse
 from llama_index.core import SimpleDirectoryReader
+from markdownify import markdownify as md
 
 load_dotenv()
 
@@ -15,46 +16,51 @@ TENANT_ID = os.getenv("SHAREPOINT_TENANT_ID")
 LMS_SITE_ID = os.getenv("LMS_SITE_ID")
 SERVICE_CATALOG_ID = os.getenv("SERVICE_CATALOG_ID")
 
-def clean_html(raw_html):
-    if not raw_html:
-        return ""
+def normalize_text(text: str) -> str:
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n[ \t]+\n", "\n\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
-    soup = BeautifulSoup(raw_html, "html.parser")
+def html_to_markdown(raw_html:str):
+    if not raw_html:
+        return "", []
     
+    soup = BeautifulSoup(raw_html, "html.parser")
     related_links = []
 
-    for script_or_style in soup(["script", "style"]):
-        script_or_style.decompose()
+    for tag in soup(["script", "style"]):
+        tag.decompose()
 
     for a in soup.find_all("a",href=True):
-        link_text = a.get_text(strip=True)
-        link_text = link_text.rstrip(":.,;!?")
-        link_url = urllib.parse.unquote(a['href'])
-
-        if link_url.startswith("/"):
-            link_url = f"https://stagetm.sharepoint.com{link_url}"
-            
-        # Alleen links toevoegen die ergens naar wijzen (geen lege of javascript links)
-        if link_text and not link_url.startswith("javascript:"):
+        href = urllib.parse.unquote(a["href"])
+        if href.startswith("/"):
+            href = f"https://stagetm.sharepoint.com{href}"
+        if not href.startswith("javascript:"):
             related_links.append({
-                "title": link_text,
-                "url": link_url
+                "title": a.get_text(strip=True),
+                "url": href,
             })
-            a.replace_with(link_text)
+            a["href"] = href
 
-
-    for tag in soup.find_all(["p", "div", "li", "h1", "h2", "h3", "h4", "br"]):
-        tag.append("\n")
-
-    text = soup.get_text()
-
+    text = md(str(soup), heading_style="ATX", bullets="-")
     text = html.unescape(text)
+    text = normalize_text(text)
+    return text, related_links
+    # for tag in soup.find_all(["p", "div", "li", "h1", "h2", "h3", "h4", "br"]):
+    #     tag.append("\n")
 
-    # teveel whitespace opruimen
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n\s*\n+", "\n\n", text)
+    # text = soup.get_text()
 
-    return text.strip(), related_links
+    # text = html.unescape(text)
+
+    # # teveel whitespace opruimen
+    # text = re.sub(r"[ \t]+", " ", text)
+    # text = re.sub(r"\n\s*\n+", "\n\n", text)
+
+    # return text.strip(), related_links
+
 
 def fetch_all_sharepoint_pages(site_id, site_label):
     print(f"Ophalen Sharepoint pagina's van site: {site_label}")
@@ -103,7 +109,7 @@ def fetch_all_sharepoint_pages(site_id, site_label):
                                 raw_html = data.get("innerHTML") or data.get("innerHtml") or data.get("text")
                                 
                             if raw_html:
-                                text, links = clean_html(raw_html)
+                                text, links = html_to_markdown(raw_html)
                                 content_parts.append(text)
                                 all_links.extend(links)
                 # Voeg alles samen met een witregel voor leesbaarheid
