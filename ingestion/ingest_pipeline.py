@@ -1,17 +1,14 @@
 import os
-import re
 import chromadb
 from dotenv import load_dotenv
 from llama_index.core import Document, SimpleDirectoryReader, VectorStoreIndex, StorageContext
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core.node_parser import SentenceSplitter
-from sharepoint_fetcher import fetch_all_sharepoint_pages, fetch_sharepoint_files, download_sharepoint_file
-from topdesk_fetcher import fetch_topdesk_documents
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.datamodel.base_models import InputFormat
-from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
+from ingestion.loaders.sharepoint_loader import fetch_all_sharepoint_pages, fetch_sharepoint_files, download_sharepoint_file
+from ingestion.loaders.topdesk_loader import fetch_topdesk_documents
+from ingestion.processing.cleaning import clean_text, clean_markdown
+from ingestion.processing.docling_parser import extract_with_docling
 import shutil
 
 load_dotenv()
@@ -22,41 +19,6 @@ SERVICE_CATALOG_ID = os.getenv("SERVICE_CATALOG_ID")
 DEBUG_DOCLING = True
 DEBUG_FILE = None
 
-pipeline_options = PdfPipelineOptions()
-pipeline_options.do_ocr = False
-pipeline_options.do_table_structure = True
-
-converter = DocumentConverter(
-    format_options={
-        InputFormat.PDF: PdfFormatOption(
-            pipeline_options=pipeline_options,
-            backend = PyPdfiumDocumentBackend
-        ),
-        InputFormat.DOCX: None
-    }
-)
-
-def extract_with_docling(file_path:str) -> str:
-    try:
-        result = converter.convert(file_path)
-
-        text = result.document.export_to_markdown()
-
-        return text.strip()
-    
-    except Exception as e:
-        print(f"[DOCLING] Fout bij het verwerken van {file_path}: {e}")
-        return ""
-
-def clean_text(text: str) -> str:
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n\s*\n", "\n\n", text)
-    return text.strip()
-
-def clean_markdown(text:str) -> str:
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    text = re.sub(r"<!-- image -->", "", text)
-    return text.strip()
 
 def load_all_data():
     all_docs = []

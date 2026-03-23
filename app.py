@@ -67,6 +67,7 @@ if submitted:
             st.session_state.answer = None
             st.session_state.sources = []
         else:
+            st.session_state.mode = "chat"
             st.session_state.answer = data["answer"]
             st.session_state.sources = data["sources"]
 

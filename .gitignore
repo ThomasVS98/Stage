@@ -3,6 +3,7 @@ chroma_db/
 data
 storage
 debug*
+test*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
