@@ -35,17 +35,5 @@ def create_incident(data:dict)->dict:
     )
 
     if not response.ok:
-        print("STATUS:", response.status_code)
-        print("RESPONSE:", response.text)
-        return
+        raise Exception(f"TOPdesk error {response.status_code}: {response.text}")
     return response.json()
-
-if __name__ == "__main__":
-    test_data = {
-        "beschrijving": "Laptop werkt niet",
-        "context": "Hardware",
-        "doel": "Kan niet werken"
-    }
-
-    result = create_incident(test_data)
-    print(result)

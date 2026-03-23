@@ -1,8 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from query import ask_question, reload_index
-from ingest import build_index, load_all_data, cleanup_temp_files
-from topdesk_ticket import create_incident
+from query import reload_index
+from services.rag_service import answer
+from ingestion.ingest_pipeline import build_index, load_all_data, cleanup_temp_files
+from services.topdesk_service import create_incident
 import uuid
 import re
 
@@ -53,7 +54,7 @@ def root():
 
 @app.post("/ask")
 def ask(q:Question):
-    result = ask_question(q.question)
+    result = answer(q.question)
     return result
 
 @app.post("/intake/start")
