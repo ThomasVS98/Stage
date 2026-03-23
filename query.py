@@ -67,9 +67,36 @@ llm = Ollama(
     temperature=0
 )
 
+def detect_intent_llm(llm, query:str):
+    prompt = f"""
+
+    Je bent een IT-dienst assistent voor de medewerkers van de Thomas More hogeschool
+
+    Classificeer de vraag van de gebruiker in een van de volgende categorieën:
+
+    - SUPPORT: De gebruiker heeft een specifieke vraag over het gebruik van een systeem, software of dienst. Bijvoorbeeld: "Hoe reset ik mijn wachtwoord?" of "Hoe maak ik verbinding met het Wi-Fi netwerk van de school?"
+    - ALGEMEEN: De gebruiker stelt een algemene vraag die niet direct gerelateerd is aan IT-support. Bijvoorbeeld: "Wat zijn de openingstijden van de bibliotheek?"
+    - IRRELEVANT: De vraag is niet relevant voor de IT-assistent of bevat ongepaste inhoud. Bijvoorbeeld: "Vertel een grap" of "Wat is de betekenis van het leven?"
+
+    Vraag: {query}
+
+    Antwoord enkel met één van de categorieën: SUPPORT, ALGEMEEN, IRRELEVANT.
+    """
+    response = llm.complete(prompt)
+    text =  response.text.strip().upper()
+
+    if "SUPPORT" in text:
+        return "SUPPORT"
+    elif "ALGEMEEN" in text:
+        return "ALGEMEEN"
+    elif "IRRELEVANT" in text:
+        return "IRRELEVANT"
+    
+    return "ONBEKEND"
+
 reranker = SentenceTransformerRerank(
     model="BAAI/bge-reranker-v2-m3",
-    top_n=3
+    top_n=5
 )
 
 # reranker = SentenceTransformerRerank(
@@ -188,15 +215,35 @@ def ask_question(query: str):
     valid_nodes = [n for n in valid_nodes if n.score is not None and n.score >= 0.30]
 
     if not valid_nodes:
-        log(f"[API] Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
-        return {
-            "answer": "Ik heb niet genoeg informatie om deze vraag te beantwoorden. Er is mogelijk een intake noodzakelijk.",
-            "sources": []
-        }
+        intent = detect_intent_llm(llm, query)
+        log(f"[INTENT] {intent}")
+        log(f"[API] Geen relevante resultaten na reranking.")
+
+        if intent == "SUPPORT":
+            return {
+                "answer": "Er is momenteel nog niet genoeg informatie hierover. Ik zal enkele vragen stellen om een ticket te kunnen aanmaken.",
+                "sources": [],
+                "action": "INTAKE"
+            }
+        elif intent == "ALGEMEEN":
+            return {
+                "answer": "Er is momenteel nog niet genoeg informatie hierover.",
+                "sources": []
+            }
+        elif intent == "IRRELEVANT":
+            return {
+                "answer": "Deze vraag lijkt niet relevant. Ik kan hier helaas niet mee helpen.",
+                "sources": []
+            }
+        else:
+            return {
+                "answer": "Ik kon de vraag niet goed interpreteren.",
+                "sources": []
+            }
 
     best_score = valid_nodes[0].score
     log(f"[API] Relevantie gevonden! Best score: {best_score:.4f}")
-    log(f"[API] Top bron: {valid_nodes[0].node.metadata.get('url')}")
+    log(f"[API] Top bron: {valid_nodes[0].node.metadata.get('url')} title: {valid_nodes[0].node.metadata.get('title')}")
 
     context = build_context(valid_nodes)
 
@@ -220,6 +267,23 @@ def ask_question(query: str):
         "answer": answer,
         "sources": sources
     }
+
+def run_intake_flow():
+    print("\n --- Intakeprocedure gestart --- \n")
+
+    intake_data = {}
+
+    intake_data["beschrijving"] = input("Beschrijf je probleem of aanvraag: ")
+    intake_data["context"] = input("Waar heeft dit betrekking op? (software, toestel, dienst, ...): ")
+    intake_data["impact"] = input("Wat werkt er niet of wat wil je bereiken?: ")
+    intake_data["urgentie"] = input("Hoe dringend is dit probleem? ")
+
+    print("\n--- Intake afgerond ---\n")
+    print("Verzamelde gegevens:")
+    for key,value in intake_data.items():
+        print(f"{key}: {value}")
+
+    return intake_data
 
 def main():
     while True:
@@ -260,14 +324,27 @@ def main():
         valid_nodes = [n for n in valid_nodes if n.score is not None and n.score >= 0.30]
 
         if not valid_nodes:
-            log(f"Geen relevante resultaten na reranking. Best score: {valid_nodes[0].score if valid_nodes else 'None'}")
-            print("\nIk heb niet genoeg informatie om deze vraag te beantwoorden. Intake opstarten...\n")
+            intent = detect_intent_llm(llm, query)
+            log(f"[INTENT] {intent}")
+            log(f"Geen relevante resultaten na reranking.")
+
+            if intent == "SUPPORT":
+                print(f"\nIk heb niet genoeg informatie. We starten een intakeprocedure...")
+                intake_data = run_intake_flow()
+                print("\n(JSON output)")
+                print(intake_data)
+            elif intent == "ALGEMEEN":
+                print(f"\nIk heb niet genoeg informatie om deze vraag te beantwoorden. (Intent: ALGEMEEN)\n")
+            elif intent == "IRRELEVANT":
+                print(f"\nDeze vraag lijkt niet relevant. (Intent: IRRELEVANT)\n")
+            else:
+                print(f"\nIk kon de vraag niet goed interpreteren. (Intent: {intent})\n")
             continue
 
                 
         log("Chunks geselecteerd door Reranker:")
         for node in valid_nodes:
-            log(f"score {node.score:.3f} | {node.node.metadata.get('url')}")
+            log(f"score {node.score:.3f} | {node.node.metadata.get('url')} | {node.node.metadata.get('title')}")
 
         context = build_context(valid_nodes)
         debug_context(context)
