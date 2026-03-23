@@ -80,6 +80,11 @@ if st.session_state.answer:
 
 if st.session_state.mode == "intake":
     st.subheader("Intakeprocedure")
+    st.info(
+        "Ik kan met deze informatie geen volledig antwoord geven. "
+        "Daarom start ik een intakeprocedure zodat er een ticket kan worden aangemaakt. "
+        "Dit ticket zal vervolgens door de ICTS-dienst worden bekeken en behandeld."
+    )
     st.write(st.session_state.current_question)
     with st.form(key="intake_form"):
         answer = st.text_input("Jouw antwoord", key=f"intake_input_{st.session_state.current_question}")
@@ -95,11 +100,26 @@ if st.session_state.mode == "intake":
                         "answer": answer
                     }
                 )
-                data = res.json()
+                if res.status_code != 200:
+                    error = res.json().get("detail", "Onbekende fout")
+                    st.error(error)
+                    st.stop()
+                else:
+                    data = res.json()
 
                 if data.get("done"):
                     st.success("Intake afgerond")
-                    st.json(data["data"])
+                    # st.json(data["data"])
+                    st.markdown("### Samenvatting van je aanvraag")
+                    st.write(f"**Probleem / aanvraag:** {data['data'].get('beschrijving')}")
+                    st.write(f"**Context:** {data['data'].get('context')}")
+                    st.write(f"**Doel:** {data['data'].get('doel')}")
+                    if data.get("ticket"):
+                        st.success(
+                                f"✅ Je ticket werd succesvol aangemaakt.\n\n"
+                                f"**Ticketnummer:** {data['ticket']['number']}\n\n"
+                                "De ICTS-dienst zal dit verder behandelen."
+                            )
 
                     st.session_state.mode = "chat"
                     st.session_state.intake_session_id = None

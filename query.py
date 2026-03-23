@@ -275,8 +275,7 @@ def run_intake_flow():
 
     intake_data["beschrijving"] = input("Beschrijf je probleem of aanvraag: ")
     intake_data["context"] = input("Waar heeft dit betrekking op? (software, toestel, dienst, ...): ")
-    intake_data["impact"] = input("Wat werkt er niet of wat wil je bereiken?: ")
-    intake_data["urgentie"] = input("Hoe dringend is dit probleem? ")
+    intake_data["doel"] = input("Wat werkt er niet of wat wil je bereiken?: ")
 
     print("\n--- Intake afgerond ---\n")
     print("Verzamelde gegevens:")

@@ -2,16 +2,43 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from query import ask_question, reload_index
 from ingest import build_index, load_all_data, cleanup_temp_files
+from topdesk_ticket import create_incident
 import uuid
+import re
 
 INTAKE_QUESTIONS = [
-    ("beschrijving", "Beschrijf je probleem of aanvraag:"),
-    ("context", "Waar heeft dit betrekking op? (software, toestel, dienst, ...):"),
-    ("impact", "Wat werkt er niet of wat wil je bereiken?:"),
-    ("urgentie", "Is dit probleem dringen? (Ja/Nee)")
+    ("beschrijving", "Beschrijf heel beknopt het probleem:"),
+    ("context", "Geef context aan je probleem/aanvraag:"),
+    ("doel", "Wat werkt er niet of wat wil je bereiken?:")
 ]
 
 intake_sessions = {} 
+
+def validate_answer(key: str, answer: str)->str:
+    answer = answer.strip()
+
+    answer = re.sub(r"<.*?>","",answer)
+
+    if not answer:
+        raise ValueError("Antwoord mag niet leeg zijn.")
+    if key == "beschrijving":
+        if len(answer) < 5:
+            raise HTTPException(status_code=400, detail="Beschrijving is te kort.")
+        if len(answer) > 80:
+            raise HTTPException(
+                status_code=400,
+                detail="Beschrijving mag maxiumum 80 karakters bevatten."
+            )
+
+    elif key == "context":
+        if len(answer) < 5:
+            raise HTTPException(status_code=400, detail="Context is te kort.")
+    elif key == "doel":
+        if len(answer) < 5:
+            raise HTTPException(status_code=400, detail="Doel is te kort.")
+        
+    return answer
+
 
 
 app = FastAPI()
@@ -56,26 +83,29 @@ def answer_intake(payload:dict):
     step = session["step"]
     key,_ = INTAKE_QUESTIONS[step]
 
-    if key == "urgentie":
-        ans = answer.lower()
-
-        if ans in ["ja", "j", "yes", "y"]:
-            parsed_answer = "HIGH"
-        elif ans in ["nee", "n", "no"]:
-            parsed_answer = "LOW"
-        else:
-            parsed_answer = "MEDIUM"
-    else:
-        parsed_answer = answer
-
-    session["data"][key] = parsed_answer
+    answer = validate_answer(key, answer)
+    session["data"][key] = answer
     session["step"] += 1
 
     if session["step"] >= len(INTAKE_QUESTIONS):
-        return {
-            "done": True,
-            "data": session["data"]
-        }
+        try:
+            ticket = create_incident(session["data"])
+
+            return {
+                "done": True,
+                "data": session["data"],
+                "ticket":{
+                    "number": ticket.get("number"),
+                    "id": ticket.get("id")
+                }
+            }
+        except Exception as e:
+            return {
+                "done": True,
+                "data": session["data"],
+                "error": str(e)
+            }
+        
     next_key, next_question = INTAKE_QUESTIONS[session["step"]]
 
     return {
