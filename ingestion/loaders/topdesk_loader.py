@@ -4,6 +4,7 @@ import re
 from llama_index.core import Document
 from markdownify import markdownify as md
 import html
+from ingestion.processing.cleaning import clean_text, clean_topdesk_text
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -109,24 +110,75 @@ def fetch_topdesk_documents():
     items = fetch_topdesk_knowledge_items()
     return topdesk_items_to_documents(items)
 
-# if __name__ == "__main__":
-#     items = fetch_topdesk_knowledge_items()
-#     docs = topdesk_items_to_documents(items)
+def fetch_topdesk_incidents(limit=200):
+    url = f"{TOPDESK_BASE_URL}tas/api/incidents"
 
-#     target = next((i for i in items if i.get("number") == "KI 0160"), None)
+    params = {
+        "page_size":50,
+        "start": 0,
+    }
+    all_items = []
 
-#     if not target:
-#         print("KI 0160 niet gevonden")
-#     else:
-#         body = (((target.get("translation") or {}).get("content") or {}).get("content") or "")
-#         print("\n=== VOLLEDIGE INHOUD KI 0160 ===\n")
-#         print(body)  # volledig, niet afgekapt
+    while url and len(all_items) < limit:
+        r = requests.get(
+            url,
+            auth=(TOPDESK_USER,TOPDESK_SECRET),
+            params=params if "?" not in url else None,
+            headers={"Accept": "application/json"},
+            timeout=30
+        )
+        r.raise_for_status()
 
-#     converted = html_to_markdown(body)
+        data = r.json()
 
-#     print("\n=== GECONVERTEERDE TEKST KI 0160 ===\n")
-#     print(converted)
+        results = data if isinstance(data, list) else data.get("results",[])
+        all_items.extend(results)
 
-#     with open("ki_0160_full.md", "w", encoding="utf-8") as f:
-#         f.write(converted)
-#     print("Geschreven naar ki_0160_full.md")
+        if len(results) < params["page_size"]:
+            break
+        params["start"] += params["page_size"]
+
+    return all_items[:limit]
+
+def incidents_to_documents(items: list[dict]) -> list[Document]:
+    docs = []
+
+    for item in items:
+        description = (item.get("briefDescription") or "").strip()
+        request = (item.get("request") or "")
+        request = clean_topdesk_text(request)
+        request = clean_text(request)
+        number = item.get("number")
+
+        if not description and not request:
+            continue
+
+        text = f"""
+Probleem: {description}
+Details:
+{request}
+""".strip()
+        
+        meta = {
+            "source": "topdesk",
+            "source_type": "incident",
+            "number": number
+        }
+
+        doc = Document(text=text, metadata=meta)
+        docs.append(doc)
+
+    return docs
+
+if __name__ == "__main__":
+    items = fetch_topdesk_incidents(limit=10)
+
+    docs = incidents_to_documents(items)
+
+    print(f"Aantal documents: {len(docs)}\n")
+
+    for i, doc in enumerate(docs[:3]):
+        print(f"--- DOCUMENT {i+1} ---")
+        print("Number:", doc.metadata.get("number"))
+        print(doc.text)
+        print("\n")

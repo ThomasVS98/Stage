@@ -1,8 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from query import reload_index
+from rag.query import reload_index
+from rag.ticket_index import reload_ticket_index
 from services.rag_service import answer
 from ingestion.ingest_pipeline import build_index, load_all_data, cleanup_temp_files
+from ingestion.ingest_tickets import build_ticket_index
 from api.routes.intake_routes import router as intake_router
 
 app = FastAPI()
@@ -26,15 +28,23 @@ async def trigger_ingest():
     try:
         print("[API] Ingestie gestart...")
         documents = load_all_data()
-        if not documents:
-            return {"status": "warning", "message": "Geen documenten gevonden om te indexeren"}
+        if documents:
+            build_index(documents)
+            print(f"[API] {len(documents)} docs geïndexeerd")
+        else:
+            print("[API] Geen docs gevonden")
+            
+        print("[API] Start tickets ingestie...")    
+        build_ticket_index(limit=200)
+        print("[API] Tickets geïndexeerd.")
 
-        build_index(documents)
         cleanup_temp_files()
+
         reload_index()  # Zorg ervoor dat de query module de nieuwe index gebruikt
+        reload_ticket_index()
         return {
             "status": "success", 
-            "message": f"Succes! {len(documents)} documenten geïndexeerd vanuit SharePoint."
+            "message": f"Succes! {len(documents)} documenten geïndexeerd en tickets geïndexeerd."
             }
     except Exception as e:
         print(f"[API] Fout tijdens ingestie: {str(e)}")

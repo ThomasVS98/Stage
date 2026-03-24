@@ -11,7 +11,7 @@ reranker = SentenceTransformerRerank(
 #     top_n=6
 # )
 
-def rerank_nodes(nodes,query:str):
+def rerank_nodes(nodes,query:str,threshold: float = 0.50):
     reranked = reranker.postprocess_nodes(
         nodes,
         query_bundle=QueryBundle(query_str=query)
@@ -19,7 +19,7 @@ def rerank_nodes(nodes,query:str):
 
     reranked = [
         n for n in reranked
-        if n.score is not None and n.score >= 0.50
+        if n.score is not None and n.score >= threshold
     ]
 
     return reranked

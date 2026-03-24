@@ -1,8 +1,15 @@
 from llama_index.llms.ollama import Ollama
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+SERVER_URL = os.getenv("SERVER_URL")
 
 llm = Ollama(
-    model="mistral:7b", #llama3.2:3b
+    model="llama3.2:3b", #mistral:7b
+    #base_url=SERVER_URL,
     request_timeout=300,
-    context_window=10000, #6140
+    context_window=6140, #6140
     temperature=0
 )

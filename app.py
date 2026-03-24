@@ -23,10 +23,10 @@ if "current_question" not in st.session_state:
 # Admin functies
 with st.sidebar:
     st.title("⚙️ Beheer")
-    st.info("Klik hieronder om de SharePoint pagina's en bestanden opnieuw te synchroniseren.")
+    st.info("Klik hieronder om de SharePoint pagina's/kennis-items/tickets opnieuw te synchroniseren.")
     
     if st.button("🔄 Database Synchroniseren"):
-        with st.spinner("Bezig met ophalen van SharePoint data... dit kan enkele minuten duren."):
+        with st.spinner("Bezig met ophalen van data... dit kan enkele minuten duren."):
             try:
                 res = requests.post(f"{API_BASE_URL}/ingest", timeout=600) 
                 
@@ -110,17 +110,21 @@ if st.session_state.mode == "intake":
 
                 if data.get("done"):
                     st.success("Intake afgerond")
-                    # st.json(data["data"])
+
                     st.markdown("### Samenvatting van je aanvraag")
                     st.write(f"**Probleem / aanvraag:** {data['data'].get('beschrijving')}")
                     st.write(f"**Context:** {data['data'].get('context')}")
                     st.write(f"**Doel:** {data['data'].get('doel')}")
+
+                    if data.get("similar_ticket"):
+                        st.warning("Er bestaat momenteel al minstens 1 ticket die mogelijk relevant is voor jouw aanvraag. De ICTS dienst zal dit verder bekijken.")
                     if data.get("ticket"):
                         st.success(
                                 f"✅ Je ticket werd succesvol aangemaakt.\n\n"
                                 f"**Ticketnummer:** {data['ticket']['number']}\n\n"
                                 "De ICTS-dienst zal dit verder behandelen."
                             )
+                        # st.json(data["data"])
 
                     st.session_state.mode = "chat"
                     st.session_state.intake_session_id = None

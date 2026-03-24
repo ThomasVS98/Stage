@@ -3,6 +3,7 @@ from api.intake_state import INTAKE_QUESTIONS
 from services.validation_service import validate_answer
 from services.topdesk_service import create_incident
 from services.session_store import session_store
+from services.ticket_match_service import find_similar_ticket
 import uuid
 
 def start():
@@ -31,22 +32,29 @@ def answer(payload:dict):
     session_store.update(session_id, key, answer)
     session = session_store.get(session_id) # session data vernieuwen na elke update
     if step + 1 >= len(INTAKE_QUESTIONS):
+        data = session["data"]
+
+        print("intake data: ", data)
         try:
-            ticket = create_incident(session["data"])
-            return {
-                "done": True,
-                "data": session["data"],
-                "ticket": {
-                    "number": ticket.get("number"),
-                    "id": ticket.get("id")
-                }
-            }
+            match = find_similar_ticket(data)
         except Exception as e:
+            print("❌ Matching error:", e)
+            match = None
+        if match and match.get("text"):
             return {
                 "done": True,
-                "data": session["data"],
-                "error": str(e)
+                "data": data,
+                "similar_ticket": match
             }
+        ticket = create_incident(data)
+        return {
+            "done": True,
+            "data": data,
+            "ticket": {
+                "number": ticket.get("number"),
+                "id": ticket.get("id")
+            }
+        }
     next_step = step + 1
     session_store.increment_step(session_id)
         

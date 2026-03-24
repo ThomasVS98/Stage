@@ -2,7 +2,7 @@ from rag.retriever import retrieve_nodes
 from rag.reranker import rerank_nodes
 from rag.prompts import detect_intent, generate_answer
 from rag.llm import llm
-from query import get_index, log
+from rag.query import get_index, log
 
 
 def build_context(nodes):

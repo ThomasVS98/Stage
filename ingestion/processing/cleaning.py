@@ -10,3 +10,11 @@ def clean_markdown(text:str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = re.sub(r"<!-- image -->", "", text)
     return text.strip()
+
+def clean_topdesk_text(text:str)->str:
+    if not text:
+        return ""
+    text = re.sub(r"^\d{2}-\d{2}-\d{4}.*?Topdesk:\s*", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
