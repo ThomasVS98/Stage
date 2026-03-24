@@ -4,7 +4,7 @@ def detect_intent_prompt(query:str)->str:
 
     Classificeer de vraag van de gebruiker in een van de volgende categorieën:
 
-    - SUPPORT: De gebruiker heeft een specifieke vraag over het gebruik van een systeem, software of dienst. Bijvoorbeeld: "Hoe reset ik mijn wachtwoord?" of "Hoe maak ik verbinding met het Wi-Fi netwerk van de school?"
+    - SUPPORT: De gebruiker heeft een specifieke vraag over het gebruik van een systeem, software of dienst. Bijvoorbeeld: "Hoe reset ik mijn wachtwoord?" of "Hoe maak ik verbinding met het Wi-Fi netwerk van de school? De vraag moet gerelateerd zijn aan service of IT diensten in een hoge school context."
     - ALGEMEEN: De gebruiker stelt een algemene vraag die niet direct gerelateerd is aan IT-support. Bijvoorbeeld: "Wat zijn de openingstijden van de bibliotheek?"
     - IRRELEVANT: De vraag is niet relevant voor de IT-assistent of bevat ongepaste inhoud. Bijvoorbeeld: "Vertel een grap" of "Wat is de betekenis van het leven?"
 

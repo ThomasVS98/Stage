@@ -1,0 +1,58 @@
+from fastapi import HTTPException
+from api.intake_state import INTAKE_QUESTIONS
+from services.validation_service import validate_answer
+from services.topdesk_service import create_incident
+from services.session_store import session_store
+import uuid
+
+def start():
+    session_id = str(uuid.uuid4())
+    session_store.create(session_id)
+    _ , question = INTAKE_QUESTIONS[0]
+    return{
+        "session_id": session_id,
+        "question": question
+    }
+
+def answer(payload:dict):
+    session_id = payload.get("session_id")
+    answer = payload.get("answer")
+
+    if not session_id or not answer:
+        raise HTTPException(status_code=400, detail="Missing session_id or answer")
+    session = session_store.get(session_id)
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Invalid session")
+    step = session["step"]
+    key, _ = INTAKE_QUESTIONS[step]
+
+    answer = validate_answer(key, answer)
+    session_store.update(session_id, key, answer)
+    session = session_store.get(session_id) # session data vernieuwen na elke update
+    if step + 1 >= len(INTAKE_QUESTIONS):
+        try:
+            ticket = create_incident(session["data"])
+            return {
+                "done": True,
+                "data": session["data"],
+                "ticket": {
+                    "number": ticket.get("number"),
+                    "id": ticket.get("id")
+                }
+            }
+        except Exception as e:
+            return {
+                "done": True,
+                "data": session["data"],
+                "error": str(e)
+            }
+    next_step = step + 1
+    session_store.increment_step(session_id)
+        
+    _ , next_question = INTAKE_QUESTIONS[next_step]
+
+    return {
+        "done": False,
+        "question": next_question
+    }
