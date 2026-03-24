@@ -2,15 +2,43 @@ def detect_intent_prompt(query:str)->str:
     return f"""
      Je bent een IT-dienst assistent voor de medewerkers van de Thomas More hogeschool
 
-    Classificeer de vraag van de gebruiker in een van de volgende categorieën:
+    Classificeer de vraag in EXACT één van deze categorieën:
 
-    - SUPPORT: De gebruiker heeft een specifieke vraag over het gebruik van een systeem, software of dienst. Bijvoorbeeld: "Hoe reset ik mijn wachtwoord?" of "Hoe maak ik verbinding met het Wi-Fi netwerk van de school? De vraag moet gerelateerd zijn aan service of IT diensten in een hoge school context."
-    - ALGEMEEN: De gebruiker stelt een algemene vraag die niet direct gerelateerd is aan IT-support. Bijvoorbeeld: "Wat zijn de openingstijden van de bibliotheek?"
-    - IRRELEVANT: De vraag is niet relevant voor de IT-assistent of bevat ongepaste inhoud. Bijvoorbeeld: "Vertel een grap" of "Wat is de betekenis van het leven?"
+    SUPPORT:
+    Als de gebruiker hulp nodig heeft met IT-systemen, software of diensten.
+    Dit omvat:
+    - problemen (iets werkt niet)
+    - hulpvragen (hoe gebruik ik iets?)
+    - aanvragen (toegang, tools, VPN, accounts, etc.)
+
+    Voorbeelden:
+    - "Hoe reset ik mijn wachtwoord?"
+    - "Mijn laptop maakt geen verbinding met wifi"
+    - "Hoe gebruik ik VPN?"
+    - "Kan ik toegang krijgen tot VPN?"
+    - "Welke tools kan ik gebruiken voor remote werken?"
+
+    ALGEMEEN:
+    Informatieve vragen die niet over IT-systemen of IT-diensten gaan.
+    Bijvoorbeeld:
+    - "Wat zijn de openingsuren van de bib?"
+    - "Wanneer start het academiejaar?"
+
+    IRRELEVANT:
+    Alles wat GEEN IT-gerelateerde vraag is, inclusief:
+    - small talk ("Hoe gaat het?", "Zullen we een spel spelen?")
+    - meningen ("Wat vind je van het weer?")
+    - algemene kennis ("Is het goed weer?")
+    - beledigingen ("Ben je een idioot?")
+
+    BELANGRIJKE REGELS:
+    - IT-gerelateerd (tools, toegang, systemen) → SUPPORT
+    - Weer, spelletjes, meningen → IRRELEVANT
+    - Twijfelgeval → kies IRRELEVANT
 
     Vraag: {query}
 
-    Antwoord enkel met één van de categorieën: SUPPORT, ALGEMEEN, IRRELEVANT.
+    Antwoord met EXACT één woord: SUPPORT, ALGEMEEN of IRRELEVANT.
     """
 
 def answer_prompt(context:str, query:str)->str:

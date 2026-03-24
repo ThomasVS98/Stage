@@ -19,7 +19,7 @@ def rerank_nodes(nodes,query:str):
 
     reranked = [
         n for n in reranked
-        if n.score is not None and n.score >= 0.30
+        if n.score is not None and n.score >= 0.50
     ]
 
     return reranked

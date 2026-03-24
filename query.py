@@ -55,21 +55,3 @@ def reload_index():
     print("[QUERY] Index wordt herladen...")
     index = load_index()
     print("[QUERY] Index succesvol herladen.")
-
-# def show_sources(nodes):
-#     print("\nBronnen:\n")
-
-#     shown = set()
-
-#     for node in nodes:
-        
-#         meta = node.node.metadata
-#         title = meta.get("title", "Geen titel")
-#         url = meta.get("url")
-
-#         identifier = url if url else title
-#         if identifier not in shown:
-#             print(f"- {title}")
-#             if url:
-#                 print(f"  Link: {url}")
-#             shown.add(identifier)
