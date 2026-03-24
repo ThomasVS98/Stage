@@ -1,8 +1,8 @@
 from llama_index.llms.ollama import Ollama
 
 llm = Ollama(
-    model="llama3.2:3b", #mistral:7b
+    model="mistral:7b", #llama3.2:3b
     request_timeout=300,
-    context_window=6144,
+    context_window=10000, #6140
     temperature=0
 )
