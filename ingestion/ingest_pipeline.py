@@ -19,10 +19,9 @@ SERVICE_CATALOG_ID = os.getenv("SERVICE_CATALOG_ID")
 DEBUG_DOCLING = True
 DEBUG_FILE = None
 
+def load_sharepoint_pages():
+    docs = []
 
-def load_all_data():
-    all_docs = []
-    print("Sharepoint pagina's ophalen")
     sites = [
         (LMS_SITE_ID, "LMS Site"),
         (SERVICE_CATALOG_ID, "IT Service Catalog")
@@ -40,63 +39,87 @@ def load_all_data():
             new_doc.metadata["source_type"] = "sharepoint_page"
             new_doc.excluded_embed_metadata_keys = ["url","source_id"]
             new_doc.excluded_llm_metadata_keys = ["url", "source_id"]
-            all_docs.append(new_doc)
+            docs.append(new_doc)
         else:
             print(f"Geen pagina's gevonden voor {label}")
+    return docs
 
-    print("Sharepoint bestanden ophalen")
+def load_sharepoint_files():
+    docs = []
+
     sp_files = fetch_sharepoint_files(LMS_SITE_ID, "LMS Files")
     temp_dir = "./temp_sharepoint"
     os.makedirs(temp_dir, exist_ok=True)
 
-    if sp_files:
-        for file in sp_files:
-            meta = file["metadata"]
-            filename = meta["filename"]
-            dl_url = meta["download_url"]
-            file_path = os.path.join(temp_dir, filename)
+    if not sp_files:
+        return docs
+    
+    for file in sp_files:
+        meta = file["metadata"]
+        filename = meta["filename"]
+        dl_url = meta["download_url"]
+        file_path = os.path.join(temp_dir, filename)
 
-            print(f"Bezig met ophalen: {filename}...")
-            if download_sharepoint_file(dl_url, file_path):
-                if filename.lower().endswith((".pdf", ".docx")):
-                    print(f"[DOCLING] Verwerken met Docling: {filename}")
-                    full_content = extract_with_docling(file_path)
-                    full_content = clean_markdown(full_content)
-                    full_content = clean_text(full_content)
+        print(f"Bezig met ophalen: {filename}...")
 
-                    # if DEBUG_DOCLING and (DEBUG_FILE is None or filename == DEBUG_FILE):
-                    #     print(f"\n--- DOCLING DEBUG: {filename} ---\n")
-                    #     print(full_content[:500])
-                else:
-                    reader = SimpleDirectoryReader(input_files=[file_path])
-                    file_docs = reader.load_data()
-                    full_content = "\n\n".join([d.text for d in file_docs])
-                    full_content = clean_text(full_content)
-
-                clean_meta = meta.copy()
-                clean_meta.pop("download_url", None)
+        if not download_sharepoint_file(dl_url, file_path):
+            print(f"Download mislukt voor {filename}")
+            continue
+        full_content = process_file(file_path, filename)
+        clean_meta = meta.copy()
+        clean_meta.pop("download_url", None)
                 
-                new_doc = Document(
-                    text = full_content,
-                    metadata = clean_meta
-                )
-                new_doc.metadata["source_type"] = "sharepoint_file"
-                new_doc.excluded_embed_metadata_keys = ["url", "download_url", "source_id"]
-                new_doc.excluded_llm_metadata_keys = ["url", "source_id", "filename"]
-                all_docs.append(new_doc)
-            else:
-                print(f"Download mislukt voor {filename}")
-        
-    print("Topdesk documenten ophalen")
+        new_doc = Document(
+            text = full_content,
+            metadata = clean_meta
+        )
+        new_doc.metadata["source_type"] = "sharepoint_file"
+        new_doc.excluded_embed_metadata_keys = ["url", "download_url", "source_id"]
+        new_doc.excluded_llm_metadata_keys = ["url", "source_id", "filename"]
+
+        docs.append(new_doc)
+
+    return docs
+    
+def process_file(file_path:str, filename:str)->str:
+
+    if filename.lower().endswith((".pdf", ".docx")):
+        print(f"[DOCLING] Verwerken met Docling: {filename}")
+
+        full_content = extract_with_docling(file_path)
+        full_content = clean_markdown(full_content)
+        full_content = clean_text(full_content)
+    else:
+        reader = SimpleDirectoryReader(input_files=[file_path])
+        file_docs = reader.load_data()
+        full_content = "\n\n".join([d.text for d in file_docs])
+        full_content = clean_text(full_content)
+
+    return full_content
+
+def load_topdesk_docs():
     try:
         topdesk_docs = fetch_topdesk_documents()
         print(f"Topdesk documenten gevonden: {len(topdesk_docs)}")
-        all_docs.extend(topdesk_docs)
+        return topdesk_docs
     except Exception as e:
         print(f"Topdesk ophalen mislukt: {e}")
+        return []
+
+def load_all_data():
+    all_docs = []
+
+    print("Sharepoint pagina's ophalen")
+    all_docs.extend(load_sharepoint_pages())
+
+    print("Sharepoint bestanden ophalen")
+    all_docs.extend(load_sharepoint_files())
+
+    print("Topdesk documenten ophalen")
+    all_docs.extend(load_topdesk_docs())
 
     return all_docs
-
+    
 def build_index(documents):
     if not documents:
         print("Geen documenten om te indexeren")
