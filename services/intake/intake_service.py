@@ -4,11 +4,14 @@ from services.intake.validation import validate_answer
 from services.topdesk_ticket_service import create_incident
 from services.session_store import session_store
 from services.ticket_match_service import find_similar_ticket
+from services.intake.validation import is_relevant
 import uuid
 
-def start():
+def start(original_question:str):
     session_id = str(uuid.uuid4())
     session_store.create(session_id)
+
+    session_store.update(session_id, "original_question", original_question)
     _ , question = INTAKE_QUESTIONS[0]
     return{
         "session_id": session_id,
@@ -33,6 +36,16 @@ def answer(payload:dict):
     session = session_store.get(session_id) # session data vernieuwen na elke update
     if step + 1 >= len(INTAKE_QUESTIONS):
         data = session["data"]
+        original_question = session["data"].get("original_question")
+
+        if not original_question:
+            print("Geen originele vraag gevonden in sessie")
+        else:
+            if not is_relevant(original_question, data):
+                return {
+                    "done": True,
+                    "error": "De gegeven antwoorden lijken niet overeen te komen met je oorspronkelijke vraag."
+                }
 
         print("intake data: ", data)
         try:
