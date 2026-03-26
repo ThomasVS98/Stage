@@ -1,12 +1,15 @@
 import os
 import requests
 from dotenv import load_dotenv
+import json
 
 load_dotenv()
 
 TOPDESK_BASE_URL = os.getenv("TOPDESK_BASE_URL")
 TOPDESK_USER = os.getenv("TOPDESK_USER")
 TOPDESK_SECRET = os.getenv("TOPDESK_SECRET")
+
+TOPDESK_ENABLED = os.getenv("TOPDESK_ENABLED","true").lower() == "true"
 
 def build_incident_payload(data:dict)->dict:
     return {
@@ -22,6 +25,16 @@ Doel: {data.get("doel")}
     }
 
 def create_incident(data:dict)->dict:
+    # voor testing somse even topdesk kunnen uitzetten voor ticketing
+    if not TOPDESK_ENABLED:
+        print("TOPDESK UITGESCHAKELD: mock ticket wordt opgeslagen")
+        with open('mock_tickets.json',"a",encoding="utf-8") as f:
+            f.write(json.dumps(data,ensure_ascii=False)+"\n")
+
+        return {
+            "number": "MOCK-1234",
+            "id": "mock_id"
+        }
     url = f"{TOPDESK_BASE_URL}tas/api/incidents"
 
     payload = build_incident_payload(data)

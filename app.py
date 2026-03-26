@@ -58,7 +58,7 @@ if submitted:
             )
         data = response.json()
         if data.get("action") == "INTAKE":
-            res = requests.post(f"{API_BASE_URL}/intake/start")
+            res = requests.post(f"{API_BASE_URL}/intake/start",json={"original_question": question})
             intake_data = res.json()
 
             st.session_state.mode = "intake"
@@ -107,6 +107,13 @@ if st.session_state.mode == "intake":
                     st.stop()
                 else:
                     data = res.json()
+
+                if data.get("error"):
+                    st.error(data["error"])
+                    st.session_state.mode = "chat"
+                    st.session_state.intake_session_id = None
+                    st.session_state.current_question = None
+                    st.stop()
 
                 if data.get("done"):
                     st.success("Intake afgerond")
