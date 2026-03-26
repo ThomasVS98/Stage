@@ -4,7 +4,7 @@ import re
 from llama_index.core import Document
 from markdownify import markdownify as md
 import html
-from ingestion.preprocessing.cleaning import clean_text, clean_topdesk_text
+from ingestion.preprocessing.cleaning import clean_text, clean_topdesk_text, normalize_text
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,14 +12,6 @@ load_dotenv()
 TOPDESK_BASE_URL = os.getenv("TOPDESK_BASE_URL")
 TOPDESK_USER = os.getenv("TOPDESK_USER")
 TOPDESK_SECRET = os.getenv("TOPDESK_SECRET")
-
-def normalize_text(text: str) -> str:
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n[ \t]+\n", "\n\n", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
-
 
 def html_to_markdown(raw_html: str) -> str:
     if not raw_html:
@@ -32,7 +24,9 @@ def html_to_markdown(raw_html: str) -> str:
 
 
 def has_usable_content(item:dict)->bool:
-    body = (((item.get("translation") or {}).get("content") or {}).get("content") or "").strip()
+    translation = item.get("translation") or {}
+    content = translation.get("content") or {}
+    body = (content.get("content") or "").strip()
     return bool(body)
 
 def fetch_topdesk_knowledge_items():
@@ -169,16 +163,3 @@ Details:
         docs.append(doc)
 
     return docs
-
-if __name__ == "__main__":
-    items = fetch_topdesk_incidents(limit=10)
-
-    docs = incidents_to_documents(items)
-
-    print(f"Aantal documents: {len(docs)}\n")
-
-    for i, doc in enumerate(docs[:3]):
-        print(f"--- DOCUMENT {i+1} ---")
-        print("Number:", doc.metadata.get("number"))
-        print(doc.text)
-        print("\n")
