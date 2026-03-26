@@ -4,10 +4,9 @@ from services.qa_service import answer
 
 router = APIRouter()
 
-class Question(BaseModel):
+class AskRequest(BaseModel):
     question: str
 
 @router.post("/ask")
-def ask(q:Question):
-    result = answer(q.question)
-    return result
+def ask(payload: AskRequest):
+    return answer(payload.question)
