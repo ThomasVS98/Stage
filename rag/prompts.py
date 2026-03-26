@@ -1,8 +1,36 @@
+import json
+import re
+
+VALID_INTENTS = ["SUPPORT", "ALGEMEEN", "IRRELEVANT"]
+
+def extract_json(text:str):
+    matches = re.findall(r"\{.*?\}", text, re.DOTALL)
+    return matches[0] if matches else None
+
+def is_valid_query(q: str) -> bool:
+    return bool(re.search(r"[a-zA-Z]{3,}", q))
+
 def detect_intent_prompt(query:str)->str:
     return f"""
      Je bent een IT-dienst assistent voor de medewerkers van de Thomas More hogeschool
 
-    Classificeer de vraag in EXACT één van deze categorieën:
+    Classificeer de vraag in EXACT één categorie:
+    - SUPPORT
+    - ALGEMEEN
+    - IRRELEVANT
+
+    REGELS:
+    - Geef je antwoord ALLEEN in JSON formaat.
+    - GEEN uitleg.
+    - GEEN extra tekst.
+    - Gebruik exact dit formaat:
+
+    {{"intent": "SUPPORT"}}
+
+    Voorbeelden:
+    {{"intent": "SUPPORT"}}
+    {{"intent": "ALGEMEEN"}}
+    {{"intent": "IRRELEVANT"}}
 
     SUPPORT:
     Als de gebruiker hulp nodig heeft met IT-systemen, software of diensten.
@@ -37,8 +65,6 @@ def detect_intent_prompt(query:str)->str:
     - Twijfelgeval → kies IRRELEVANT
 
     Vraag: {query}
-
-    Antwoord met EXACT één woord: SUPPORT, ALGEMEEN of IRRELEVANT.
     """
 
 def answer_prompt(context:str, query:str)->str:
@@ -69,16 +95,29 @@ def answer_prompt(context:str, query:str)->str:
     """
 
 def detect_intent(llm, query:str):
+    if not is_valid_query(query):
+        return "IRRELEVANT"
+    
     prompt = detect_intent_prompt(query)
     response = llm.complete(prompt)
-    text =  response.text.strip().upper()
+    raw = response.text.strip()
+    print("RAW INTENT: ",raw)
 
-    if "SUPPORT" in text:
-        return "SUPPORT"
-    elif "ALGEMEEN" in text:
-        return "ALGEMEEN"
-    elif "IRRELEVANT" in text:
-        return "IRRELEVANT" 
+    json_str = extract_json(raw)
+    if json_str:
+        try:
+            data = json.loads(json_str)
+            intent = data.get("intent","").upper()
+            if intent in VALID_INTENTS:
+                return intent
+        except Exception as e:
+            print(f"Error occurred while parsing JSON: {e}")
+
+    raw_upper = raw.upper().strip()
+    if raw_upper in VALID_INTENTS:
+        return raw_upper
+    
+    print("Intent detection failed for output:", raw)
     return "ONBEKEND"
 
 def generate_answer(llm, context, query):
