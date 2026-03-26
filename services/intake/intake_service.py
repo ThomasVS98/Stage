@@ -1,7 +1,7 @@
 from fastapi import HTTPException
-from api.intake_state import INTAKE_QUESTIONS
-from services.validation_service import validate_answer
-from services.topdesk_service import create_incident
+from services.intake.intake_state import INTAKE_QUESTIONS
+from services.intake.validation import validate_answer
+from services.topdesk_ticket_service import create_incident
 from services.session_store import session_store
 from services.ticket_match_service import find_similar_ticket
 import uuid

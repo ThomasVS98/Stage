@@ -4,7 +4,7 @@ import re
 from llama_index.core import Document
 from markdownify import markdownify as md
 import html
-from ingestion.processing.cleaning import clean_text, clean_topdesk_text
+from ingestion.preprocessing.cleaning import clean_text, clean_topdesk_text
 from dotenv import load_dotenv
 
 load_dotenv()

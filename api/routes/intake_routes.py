@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from services.intake_service import start as start_service
-from services.intake_service import answer as answer_service
+from services.intake.intake_service import start as start_service
+from services.intake.intake_service import answer as answer_service
 
 
 router = APIRouter()

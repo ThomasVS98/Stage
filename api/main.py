@@ -1,51 +1,14 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from rag.query import reload_index
-from rag.ticket_index import reload_ticket_index
-from services.rag_service import answer
-from ingestion.ingest_pipeline import build_index, load_all_data, cleanup_temp_files
-from ingestion.ingest_tickets import build_ticket_index
+from fastapi import FastAPI
 from api.routes.intake_routes import router as intake_router
+from api.routes.rag_routes import router as rag_router
+from api.routes.admin_routes import router as admin_router
 
 app = FastAPI()
+
 app.include_router(intake_router)
-
-
-class Question(BaseModel):
-    question: str
+app.include_router(rag_router)
+app.include_router(admin_router)
 
 @app.get("/")
 def root():
     return {"message": "RAG API running"}
-
-@app.post("/ask")
-def ask(q:Question):
-    result = answer(q.question)
-    return result
-
-@app.post("/ingest")
-async def trigger_ingest():
-    try:
-        print("[API] Ingestie gestart...")
-        documents = load_all_data()
-        if documents:
-            build_index(documents)
-            print(f"[API] {len(documents)} docs geïndexeerd")
-        else:
-            print("[API] Geen docs gevonden")
-            
-        print("[API] Start tickets ingestie...")    
-        build_ticket_index(limit=200)
-        print("[API] Tickets geïndexeerd.")
-
-        cleanup_temp_files()
-
-        reload_index()  # Zorg ervoor dat de query module de nieuwe index gebruikt
-        reload_ticket_index()
-        return {
-            "status": "success", 
-            "message": f"Succes! {len(documents)} documenten geïndexeerd en tickets geïndexeerd."
-            }
-    except Exception as e:
-        print(f"[API] Fout tijdens ingestie: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
