@@ -30,8 +30,52 @@ def build_context(nodes):
         """
     return context
 
+def handle_no_results(query: str):
+    intent = detect_intent(llm, query)
+    log(f"[INTENT] {intent}")
+    log(f"[API] Geen relevante resultaten na reranking.")
 
-#functie voor FastAPI
+    if intent == "SUPPORT":
+        return {
+                "answer": "Er is momenteel nog niet genoeg informatie hierover. Ik zal enkele vragen stellen om een ticket te kunnen aanmaken.",
+                "sources": [],
+                "action": "INTAKE"
+        }
+    elif intent == "ALGEMEEN":
+        return {
+            "answer": "Er is momenteel nog niet genoeg informatie hierover.",
+            "sources": []
+        }
+    elif intent == "IRRELEVANT":
+        return {
+            "answer": "Deze vraag lijkt niet relevant. Ik kan hier helaas niet mee helpen.",
+            "sources": []
+        }
+    else:
+        return {
+            "answer": "Ik kon de vraag niet goed interpreteren.",
+            "sources": []
+        }
+    
+def extract_sources(nodes):
+    sources = []
+
+    for node in nodes:
+        meta = node.node.metadata
+        title = meta.get("title")
+        url = meta.get("url")
+        source_str = f"{title} ({url})" if url else title
+        if source_str and source_str not in sources:
+            sources.append(source_str)
+
+    return sources
+
+def handle_no_retrieval():
+    return {
+        "answer": "Ik heb niet genoeg informatie.",
+        "sources": []
+    }
+
 def answer(query: str, debug: bool = False):
 
     log(f"[API] Ontvangen vraag: {query}")
@@ -52,10 +96,7 @@ def answer(query: str, debug: bool = False):
             log(f"Retrieved node: {node.node.metadata.get('title')}")
 
     if not all_nodes:
-        return {
-            "answer": "Ik heb niet genoeg informatie.",
-            "sources": []
-        }
+        return handle_no_retrieval()
     
     valid_nodes = rerank_nodes(all_nodes, query)
 
@@ -65,31 +106,7 @@ def answer(query: str, debug: bool = False):
             log(f"score {node.score:.3f} | {node.node.metadata.get('title')}")
 
     if not valid_nodes:
-        intent = detect_intent(llm, query)
-        log(f"[INTENT] {intent}")
-        log(f"[API] Geen relevante resultaten na reranking.")
-
-        if intent == "SUPPORT":
-            return {
-                "answer": "Er is momenteel nog niet genoeg informatie hierover. Ik zal enkele vragen stellen om een ticket te kunnen aanmaken.",
-                "sources": [],
-                "action": "INTAKE"
-            }
-        elif intent == "ALGEMEEN":
-            return {
-                "answer": "Er is momenteel nog niet genoeg informatie hierover.",
-                "sources": []
-            }
-        elif intent == "IRRELEVANT":
-            return {
-                "answer": "Deze vraag lijkt niet relevant. Ik kan hier helaas niet mee helpen.",
-                "sources": []
-            }
-        else:
-            return {
-                "answer": "Ik kon de vraag niet goed interpreteren.",
-                "sources": []
-            }
+        return handle_no_results(query)
 
     best_score = valid_nodes[0].score
     log(f"[API] Relevantie gevonden! Best score: {best_score:.4f}")
@@ -101,24 +118,16 @@ def answer(query: str, debug: bool = False):
         print(context)
         print("\n=================================================\n")
 
-
     response = generate_answer(llm, context, query)
 
-    answer = ""
+    answer_text = ""
     for token in response:
-        answer += token.delta
+        if token.delta:
+            answer_text += token.delta
 
-    sources = []
-
-    for node in valid_nodes:
-        meta = node.node.metadata
-        title = meta.get("title")
-        url = meta.get("url")
-        source_str = f"{title} ({url})" if url else title
-        if source_str and source_str not in sources:
-            sources.append(source_str)
+    sources = extract_sources(valid_nodes)
         
     return {
-        "answer": answer,
+        "answer": answer_text,
         "sources": sources
     }

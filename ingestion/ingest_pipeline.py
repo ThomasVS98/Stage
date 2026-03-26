@@ -19,6 +19,21 @@ SERVICE_CATALOG_ID = os.getenv("SERVICE_CATALOG_ID")
 DEBUG_DOCLING = True
 DEBUG_FILE = None
 
+def create_document_from_file(content:str, metadata:dict):
+    clean_meta = metadata.copy()
+    clean_meta.pop("download_url", None)
+                
+    new_doc = Document(
+        text = content,
+        metadata = clean_meta
+    )
+
+    new_doc.metadata["source_type"] = "sharepoint_file"
+    new_doc.excluded_embed_metadata_keys = ["url", "download_url", "source_id"]
+    new_doc.excluded_llm_metadata_keys = ["url", "source_id", "filename"]
+
+    return new_doc
+
 def load_sharepoint_pages():
     docs = []
 
@@ -66,16 +81,17 @@ def load_sharepoint_files():
             print(f"Download mislukt voor {filename}")
             continue
         full_content = process_file(file_path, filename)
-        clean_meta = meta.copy()
-        clean_meta.pop("download_url", None)
+        new_doc = create_document_from_file(full_content, meta)
+        # clean_meta = meta.copy()
+        # clean_meta.pop("download_url", None)
                 
-        new_doc = Document(
-            text = full_content,
-            metadata = clean_meta
-        )
-        new_doc.metadata["source_type"] = "sharepoint_file"
-        new_doc.excluded_embed_metadata_keys = ["url", "download_url", "source_id"]
-        new_doc.excluded_llm_metadata_keys = ["url", "source_id", "filename"]
+        # new_doc = Document(
+        #     text = full_content,
+        #     metadata = clean_meta
+        # )
+        # new_doc.metadata["source_type"] = "sharepoint_file"
+        # new_doc.excluded_embed_metadata_keys = ["url", "download_url", "source_id"]
+        # new_doc.excluded_llm_metadata_keys = ["url", "source_id", "filename"]
 
         docs.append(new_doc)
 
