@@ -1,8 +1,11 @@
 from rag.retriever import retrieve_nodes
 from rag.reranker import rerank_nodes
 from rag.ticket_index import get_ticket_index
+from utils.logging import get_logger
 
 SIMILARITY_THRESHOLD = 0.65
+
+logger = get_logger(__name__)
 
 def find_similar_ticket(data:dict):
     query = f"""
@@ -13,7 +16,7 @@ def find_similar_ticket(data:dict):
     index = get_ticket_index()
 
     if index is None:
-        print("Ticket index niet geladen")
+        logger.warning("Ticket index niet geladen")
         return None
     
     nodes = retrieve_nodes(index,query)
@@ -21,8 +24,10 @@ def find_similar_ticket(data:dict):
     
     if not nodes:
         return None
+    
     best = nodes[0]
-    print(f"[MATCH] Beste score: {best.score:.3f}")
+    logger.info("Beste score: %.3f", best.score)
+    
     if best.score >= SIMILARITY_THRESHOLD:
         return {
             "score": float(best.score),

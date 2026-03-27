@@ -2,8 +2,12 @@ import os
 import requests
 from dotenv import load_dotenv
 import streamlit as st
+from utils.logging import setup_logging, get_logger
 
 load_dotenv()
+
+setup_logging()
+logger = get_logger(__name__)
 
 API_BASE_URL = os.getenv("API_BASE_URL")
 
@@ -26,6 +30,7 @@ with st.sidebar:
     st.info("Klik hieronder om de SharePoint pagina's/kennis-items/tickets opnieuw te synchroniseren.")
     
     if st.button("🔄 Database Synchroniseren"):
+        logger.info("Database synchronisatie gestart door gebruiker")
         with st.spinner("Bezig met ophalen van data... dit kan enkele minuten duren."):
             try:
                 res = requests.post(f"{API_BASE_URL}/ingest", timeout=600) 
@@ -33,14 +38,17 @@ with st.sidebar:
                 if res.status_code == 200:
                     status_msg = res.json().get('message', 'Database succesvol bijgewerkt!')
                     st.success(f"✅ {status_msg}")
+                    logger.info("Database synchronisatie succesvol afgerond")
                     st.cache_resource.clear()
                 else:
                     error_detail = res.json().get('detail', 'Onbekende fout')
                     st.error(f"Fout: {error_detail}")
             except requests.exceptions.Timeout:
                 st.warning("⚠️ De server is nog bezig met indexeren, maar de verbinding met de interface is verbroken. Wacht een paar minuten en stel dan je vraag.")
+                logger.warning("Timeout tijdens database synchronisatie")
             except Exception as e:
                 st.error(f"Verbindingsfout: {str(e)}")
+                logger.exception("Verbindingsfout tijdens synchronisatie: %s", e)
     
 #Hoofdscherm
 st.title("IT Assistent")
@@ -51,6 +59,7 @@ with st.form("vraag_form"):
 
 if submitted:
     if question:
+        logger.info("Vraag ontvangen in Streamlit")
         with st.spinner("Bezig met het beantwoorden van de vraag..."):
             response = requests.post(
                 f'{API_BASE_URL}/ask',
@@ -66,6 +75,8 @@ if submitted:
             st.session_state.current_question = intake_data["question"]
             st.session_state.answer = None
             st.session_state.sources = []
+
+            logger.info("Intake flow gestart")
         else:
             st.session_state.mode = "chat"
             st.session_state.answer = data["answer"]
@@ -132,6 +143,7 @@ if st.session_state.mode == "intake":
                                 "De ICTS-dienst zal dit verder behandelen."
                             )
                         # st.json(data["data"])
+                        logger.info("Intake afgerond, ticket aangemaakt: %s", data["ticket"]["number"])
 
                     st.session_state.mode = "chat"
                     st.session_state.intake_session_id = None

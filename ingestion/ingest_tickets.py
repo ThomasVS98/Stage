@@ -4,15 +4,18 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.core.node_parser import SentenceSplitter
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 def build_ticket_index(limit=200):
-    print("Topdesk tickets ophalen...")
+    logger.info("Topdesk tickets ophalen...")
 
     items = fetch_topdesk_incidents(limit=limit)
-    print(f"{len(items)} tickets opgehaald")
+    logger.info("%s tickets opgehaald", len(items))
 
     documents = incidents_to_documents(items)
-    print(f"{len(documents)} documenten gemaakt")
+    logger.info("%s documenten gemaakt", len(documents))
 
     embed_model = HuggingFaceEmbedding(
         model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
@@ -23,9 +26,9 @@ def build_ticket_index(limit=200):
 
     try:
         chroma_client.delete_collection("tickets")
-        print("Bestaande tickets collectie verwijderd")
-    except:
-        pass
+        logger.info("Bestaande tickets collectie verwijderd")
+    except Exception as e:
+        logger.info("Geen bestaande tickets collectie om te verwijderen: %s", e)
 
     collection = chroma_client.get_or_create_collection(
         name = "tickets",
@@ -35,7 +38,7 @@ def build_ticket_index(limit=200):
     vector_store = ChromaVectorStore(chroma_collection=collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-    print("Indexeren...")
+    logger.info("Indexeren...")
 
     index = VectorStoreIndex.from_documents(
         documents,
@@ -45,7 +48,7 @@ def build_ticket_index(limit=200):
         show_progress=True
     )
 
-    print(f"Klaar. Aantal vectors: {collection.count()}")
+    logger.info("Klaar. Aantal vectors: %s", collection.count())
     return index
 
 if __name__ == "__main__":

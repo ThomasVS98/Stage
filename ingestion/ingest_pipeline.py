@@ -10,6 +10,7 @@ from ingestion.loaders.topdesk_fetcher import fetch_topdesk_documents
 from ingestion.preprocessing.cleaning import clean_text, clean_markdown
 from ingestion.preprocessing.docling_parser import extract_with_docling
 import shutil
+from utils.logging import get_logger
 
 load_dotenv()
 
@@ -18,6 +19,8 @@ SERVICE_CATALOG_ID = os.getenv("SERVICE_CATALOG_ID")
 
 DEBUG_DOCLING = True
 DEBUG_FILE = None
+
+logger = get_logger(__name__)
 
 def create_document_from_file(content:str, metadata:dict):
     clean_meta = metadata.copy()
@@ -56,7 +59,7 @@ def load_sharepoint_pages():
             new_doc.excluded_llm_metadata_keys = ["url", "source_id"]
             docs.append(new_doc)
         else:
-            print(f"Geen pagina's gevonden voor {label}")
+            logger.warning("Geen pagina's gevonden voor %s", label)
     return docs
 
 def load_sharepoint_files():
@@ -75,10 +78,10 @@ def load_sharepoint_files():
         dl_url = meta["download_url"]
         file_path = os.path.join(temp_dir, filename)
 
-        print(f"Bezig met ophalen: {filename}...")
+        logger.info("Bezig met ophalen: %s...", filename)
 
         if not download_sharepoint_file(dl_url, file_path):
-            print(f"Download mislukt voor {filename}")
+            logger.warning("Download mislukt voor %s", filename)
             continue
         full_content = process_file(file_path, filename)
         new_doc = create_document_from_file(full_content, meta)
@@ -89,7 +92,7 @@ def load_sharepoint_files():
 def process_file(file_path:str, filename:str)->str:
 
     if filename.lower().endswith((".pdf", ".docx")):
-        print(f"[DOCLING] Verwerken met Docling: {filename}")
+        logger.info("Verwerken met Docling: %s", filename)
 
         full_content = extract_with_docling(file_path)
         full_content = clean_markdown(full_content)
@@ -105,40 +108,43 @@ def process_file(file_path:str, filename:str)->str:
 def load_topdesk_docs():
     try:
         topdesk_docs = fetch_topdesk_documents()
-        print(f"Topdesk documenten gevonden: {len(topdesk_docs)}")
+        logger.info("Topdesk documenten gevonden: %s", len(topdesk_docs))
         return topdesk_docs
     except Exception as e:
-        print(f"Topdesk ophalen mislukt: {e}")
+        logger.exception("Topdesk ophalen mislukt: %s", e)
         return []
 
 def load_all_data():
     all_docs = []
 
-    print("Sharepoint pagina's ophalen")
+    logger.info("Sharepoint pagina's ophalen")
     all_docs.extend(load_sharepoint_pages())
+    logger.info("Totaal docs na Sharepoint pagina's: %s", len(all_docs))
 
-    print("Sharepoint bestanden ophalen")
+    logger.info("Sharepoint bestanden ophalen")
     all_docs.extend(load_sharepoint_files())
+    logger.info("Totaal docs na Sharepoint bestanden: %s", len(all_docs))
 
-    print("Topdesk documenten ophalen")
+    logger.info("Topdesk documenten ophalen")
     all_docs.extend(load_topdesk_docs())
+    logger.info("Totaal docs na Topdesk: %s", len(all_docs))
 
     return all_docs
     
 def build_index(documents):
     if not documents:
-        print("Geen documenten om te indexeren")
+        logger.warning("Geen documenten om te indexeren")
         return
     
     for doc in documents:
         if "source_id" in doc.metadata:
             doc.doc_id = doc.metadata["source_id"]
             
-    print(f"\n Indexeren van {len(documents)} documenten naar ChromaDB...")
+    logger.info("Indexeren van %s documenten naar ChromaDB...", len(documents))
 
     if os.path.exists("./storage"):
         shutil.rmtree("./storage")
-        print("Bestaande storage folder verwijderd voor schone start.")
+        logger.info("Bestaande storage folder verwijderd voor schone start.")
 
 
     embed_model = HuggingFaceEmbedding(
@@ -150,7 +156,7 @@ def build_index(documents):
 
     try:
         chroma_client.delete_collection("docs")
-        print("Bestaande collectie 'docs' verwijderd.")
+        logger.info("Bestaande collectie 'docs' verwijderd.")
     except:
         pass
     
@@ -170,15 +176,15 @@ def build_index(documents):
         show_progress=True
     )
 
-    print(f"\n Indexering klaar")
-    print(f"Totaal aantal chuncks in vector store: {chroma_collection.count()}")
+    logger.info("Indexering klaar")
+    logger.info("Totaal aantal chuncks in vector store: %s", chroma_collection.count())
 
     return index
 
 def cleanup_temp_files(temp_dir="./temp_sharepoint"):
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
-        print(f"Tijdelijke map {temp_dir} verwijderd.")
+        logger.info("Tijdelijke map %s verwijderd.", temp_dir)
 
 if __name__ == "__main__":
 
@@ -187,4 +193,4 @@ if __name__ == "__main__":
         build_index(docs)
         cleanup_temp_files()
     else:
-        print("Geen documenten gevonden om te verwerken")
+        logger.warning("Geen documenten gevonden om te verwerken")

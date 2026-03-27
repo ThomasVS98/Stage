@@ -6,8 +6,10 @@ import html
 import urllib.parse
 from markdownify import markdownify as md
 from ingestion.preprocessing.cleaning import normalize_text
+from utils.logging import get_logger
 
 load_dotenv()
+logger = get_logger(__name__)
 
 CLIENT_ID = os.getenv("SHAREPOINT_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SHAREPOINT_CLIENT_SECRET")
@@ -83,7 +85,7 @@ def build_folder_url(site_id, folder_id):
     return f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/items/{folder_id}/children"
 
 def fetch_all_sharepoint_pages(site_id, site_label):
-    print(f"Ophalen Sharepoint pagina's van site: {site_label}")
+    logger.info("Ophalen Sharepoint pagina's van site: %s", site_label)
     headers = get_headers()
 
     pages_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/pages"
@@ -91,7 +93,7 @@ def fetch_all_sharepoint_pages(site_id, site_label):
 
     final_data = []
     if res_pages.status_code != 200:
-            print(f"Error in ophalen SharePoint pagina's: {res_pages.status_code}")
+            logger.warning("Error in ophalen SharePoint pagina's: %s", res_pages.status_code)
             return []
     pages = res_pages.json().get('value', [])
     for page in pages:
@@ -120,12 +122,12 @@ def fetch_all_sharepoint_pages(site_id, site_label):
             "site_label": site_label,
         }
         })
-        print(f"Ingehaald: {title}")
+        logger.info("Opgehaalde site: %s", title)
 
     return final_data
     
 def fetch_sharepoint_files(site_id, site_label):
-    print(f"Ophalen Sharepoint bestanden van site: {site_label}")
+    logger.info("Ophalen Sharepoint bestanden van site: %s", site_label)
     headers = get_headers()
 
     final_files = []
@@ -167,7 +169,7 @@ def fetch_sharepoint_files(site_id, site_label):
                             "site_label": site_label
                         }
                     })
-                    print(f"Bestand gevonden: {name}")
+                    logger.info("Bestand gevonden: %s", name)
     return final_files
 
 def download_sharepoint_file(download_url, save_path):
@@ -181,5 +183,5 @@ def download_sharepoint_file(download_url, save_path):
             return True
         return False
     except Exception as e:
-        print(f"Fout bij downloaden: {e}")
+        logger.exception("Fout bij downloaden: %s", e)
         return False

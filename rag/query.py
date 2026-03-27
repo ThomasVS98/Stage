@@ -2,20 +2,9 @@ from llama_index.core import VectorStoreIndex
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import chromadb
+from utils.logging import get_logger
 
-
-DEBUG = True
-DEBUG_CONTEXT = True
-
-def debug_context(context):
-    if DEBUG_CONTEXT:
-        print("\n================ CONTEXT NAAR LLM ================\n")
-        print(context)
-        print("\n=================================================\n")
-
-def log(msg):
-    if DEBUG:
-        print(f"[RAG] {msg}")
+logger = get_logger(__name__)
 
 def load_index():
 
@@ -28,7 +17,7 @@ def load_index():
     try:
         chroma_collection = chroma_client.get_collection("docs")
     except Exception:
-        print("Geen collectie gevonden. Voer eerst ingest uit")
+        logger.warning("Geen collectie gevonden. Voer eerst ingest uit")
         return None
     
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
@@ -52,6 +41,6 @@ def get_index():
 def reload_index():
     """Forceert het herladen van de index na een ingestie."""
     global index
-    print("[QUERY] Index wordt herladen...")
+    logger.info("Index wordt herladen...")
     index = load_index()
-    print("[QUERY] Index succesvol herladen.")
+    logger.info("Index succesvol herladen.")
