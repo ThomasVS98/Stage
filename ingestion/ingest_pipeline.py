@@ -6,7 +6,7 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core.node_parser import SentenceSplitter
 from ingestion.loaders.sharepoint_loader import fetch_all_sharepoint_pages, fetch_sharepoint_files, download_sharepoint_file
-from ingestion.loaders.topdesk_fetcher import fetch_topdesk_documents
+from ingestion.loaders.topdesk_loader import fetch_topdesk_documents
 from ingestion.preprocessing.cleaning import clean_text, clean_markdown
 from ingestion.preprocessing.docling_parser import extract_with_docling
 import shutil

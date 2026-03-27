@@ -1,6 +1,6 @@
 from rag.retriever import retrieve_nodes
 from rag.reranker import rerank_nodes
-from rag.ticket_index import get_ticket_index
+from rag.index_store import get_index
 from utils.logging import get_logger
 
 SIMILARITY_THRESHOLD = 0.65
@@ -13,7 +13,7 @@ def find_similar_ticket(data:dict):
     Context: {data.get("context")}
     Doel: {data.get("doel")}
     """
-    index = get_ticket_index()
+    index = get_index("tickets")
 
     if index is None:
         logger.warning("Ticket index niet geladen")
