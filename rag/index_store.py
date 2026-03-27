@@ -6,13 +6,14 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+embed_model = HuggingFaceEmbedding(
+    model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+    normalize=True
+)
+
 cache = {}
 
 def load_collection_index(collection_name:str):
-    embed_model = HuggingFaceEmbedding(
-        model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-        normalize=True
-    )
 
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
     try:
