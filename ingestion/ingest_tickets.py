@@ -1,5 +1,5 @@
 import chromadb
-from ingestion.loaders.topdesk_fetcher import fetch_topdesk_incidents, incidents_to_documents
+from ingestion.loaders.topdesk_loader import fetch_topdesk_incidents, incidents_to_documents
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import VectorStoreIndex, StorageContext

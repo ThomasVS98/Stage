@@ -28,7 +28,7 @@ Doel: {data.get("doel")}
     }
 
 def create_incident(data:dict)->dict:
-    # voor testing somse even topdesk kunnen uitzetten voor ticketing
+    # voor testing soms even topdesk kunnen uitzetten voor ticketing
     if not TOPDESK_ENABLED:
         logger.warning("TOPdesk uitgeschakeld: mock ticket wordt opgeslagen")
         with open('mock_tickets.jsonl',"a",encoding="utf-8") as f:

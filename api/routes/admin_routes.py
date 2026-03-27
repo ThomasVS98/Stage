@@ -1,8 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from ingestion.ingest_pipeline import build_index, load_all_data, cleanup_temp_files
 from ingestion.ingest_tickets import build_ticket_index
-from rag.ticket_index import reload_ticket_index
-from rag.query import reload_index
+from rag.index_store import reload_index
 from utils.logging import get_logger
 
 router = APIRouter()
@@ -25,8 +24,8 @@ async def trigger_ingest():
 
         cleanup_temp_files()
 
-        reload_index()  # Zorg ervoor dat de query module de nieuwe index gebruikt
-        reload_ticket_index()
+        reload_index("docs")  # Zorg ervoor dat de query module de nieuwe index gebruikt
+        reload_index("tickets")
         return {
             "status": "success", 
             "message": f"Succes! {len(documents)} documenten geïndexeerd en tickets geïndexeerd."

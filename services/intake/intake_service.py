@@ -1,9 +1,9 @@
 from fastapi import HTTPException
 from services.intake.intake_state import INTAKE_QUESTIONS
 from services.intake.validation import validate_answer, is_relevant
-from services.topdesk_ticket_service import create_incident
-from services.session_store import session_store
-from services.ticket_match_service import find_similar_ticket
+from clients.topdesk_client import create_incident
+from stores.session_store import session_store
+from rag.ticket_matcher import find_similar_ticket
 import uuid
 from utils.logging import get_logger
 
