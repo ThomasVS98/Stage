@@ -3,24 +3,25 @@ from ingestion.ingest_pipeline import build_index, load_all_data, cleanup_temp_f
 from ingestion.ingest_tickets import build_ticket_index
 from rag.ticket_index import reload_ticket_index
 from rag.query import reload_index
-
+from utils.logging import get_logger
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 @router.post("/ingest")
 async def trigger_ingest():
     try:
-        print("[API] Ingestie gestart...")
+        logger.info("Ingestie gestart...")
         documents = load_all_data()
         if documents:
             build_index(documents)
-            print(f"[API] {len(documents)} docs geïndexeerd")
+            logger.info("%s docs geindexeerd", len(documents))
         else:
-            print("[API] Geen docs gevonden")
+            logger.info("Geen docs gevonden")
             
-        print("[API] Start tickets ingestie...")    
+        logger.info("Start tickets ingestie...")    
         build_ticket_index(limit=200)
-        print("[API] Tickets geïndexeerd.")
+        logger.info("Tickets geïndexeerd.")
 
         cleanup_temp_files()
 
@@ -31,5 +32,5 @@ async def trigger_ingest():
             "message": f"Succes! {len(documents)} documenten geïndexeerd en tickets geïndexeerd."
             }
     except Exception as e:
-        print(f"[API] Fout tijdens ingestie: {str(e)}")
+        logger.exception("Fout tijdens ingestie: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))

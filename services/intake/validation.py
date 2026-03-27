@@ -3,6 +3,10 @@ from fastapi import HTTPException
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
+
 model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-mpnet-base-v2")
 
 def is_relevant(original_question:str, intake_data:dict, threshold: float = 0.5):
@@ -15,7 +19,7 @@ def is_relevant(original_question:str, intake_data:dict, threshold: float = 0.5)
     emb2 = model.encode([combined])
 
     score = cosine_similarity(emb1, emb2)[0][0]
-    print(f"[INTAKE VALIDATION] similarity met orignele vraag: {score:.3f}")
+    logger.info("similarity met orignele vraag: %.3f", score)
 
     return score >= threshold
 

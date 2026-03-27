@@ -2,7 +2,10 @@ from rag.retriever import retrieve_nodes
 from rag.reranker import rerank_nodes
 from rag.prompts import detect_intent, generate_answer
 from rag.llm import llm
-from rag.query import get_index, log
+from rag.query import get_index
+from utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def build_context(nodes):
@@ -32,8 +35,8 @@ def build_context(nodes):
 
 def handle_no_results(query: str):
     intent = detect_intent(llm, query)
-    log(f"[INTENT] {intent}")
-    log(f"[API] Geen relevante resultaten na reranking.")
+    logger.info("Intent: %s", intent)
+    logger.info("Geen relevante resultaten na reranking.")
 
     if intent == "SUPPORT":
         return {
@@ -76,9 +79,9 @@ def handle_no_retrieval():
         "sources": []
     }
 
-def answer(query: str, debug: bool = False):
+def answer(query: str, debug: bool = True):
 
-    log(f"[API] Ontvangen vraag: {query}")
+    logger.info("Ontvangen vraag: %s", query)
 
     idx = get_index()
 
@@ -91,9 +94,9 @@ def answer(query: str, debug: bool = False):
     all_nodes = retrieve_nodes(idx,query)
 
     if debug:
-        log(f"Opgehaalde blokken: {len(all_nodes)}")
+        logger.info("Opgehaalde blokken: %s", len(all_nodes))
         for node in all_nodes:
-            log(f"Retrieved node: {node.node.metadata.get('title')}")
+            logger.info("Retrieved node: %s", node.node.metadata.get('title'))
 
     if not all_nodes:
         return handle_no_retrieval()
@@ -101,22 +104,26 @@ def answer(query: str, debug: bool = False):
     valid_nodes = rerank_nodes(all_nodes, query)
 
     if debug:
-        log("Chunks geselecteerd door Reranker:")
+        logger.info("Chunks geselecteerd door Reranker:")
         for node in valid_nodes:
-            log(f"score {node.score:.3f} | {node.node.metadata.get('title')}")
+            logger.info("score %.3f | %s", node.score, node.node.metadata.get('title'))
 
     if not valid_nodes:
         return handle_no_results(query)
 
     best_score = valid_nodes[0].score
-    log(f"[API] Relevantie gevonden! Best score: {best_score:.4f}")
-    log(f"[API] Top bron: {valid_nodes[0].node.metadata.get('url')} title: {valid_nodes[0].node.metadata.get('title')}")
+    logger.info("Relevantie gevonden! Best score: %.4f", best_score)
+    logger.info(
+        "Top bron: %s -  title: %s",
+        valid_nodes[0].node.metadata.get('url'), 
+        valid_nodes[0].node.metadata.get('title'))
 
     context = build_context(valid_nodes)
     if debug:
-        print("\n================ CONTEXT NAAR LLM ================\n")
-        print(context)
-        print("\n=================================================\n")
+        logger.info(
+            "\n================ CONTEXT NAAR LLM ================\n%s\n=================================================\n",
+            context,
+        )
 
     response = generate_answer(llm, context, query)
 

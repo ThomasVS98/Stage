@@ -6,8 +6,10 @@ from markdownify import markdownify as md
 import html
 from ingestion.preprocessing.cleaning import clean_text, clean_topdesk_text, normalize_text
 from dotenv import load_dotenv
+from utils.logging import get_logger
 
 load_dotenv()
+logger = get_logger(__name__)
 
 TOPDESK_BASE_URL = os.getenv("TOPDESK_BASE_URL")
 TOPDESK_USER = os.getenv("TOPDESK_USER")
@@ -56,6 +58,8 @@ def fetch_topdesk_knowledge_items():
         params = None
 
     usable = [i for i in all_items if has_usable_content(i)]
+
+    logger.info("TOPdesk knowledge-items opgehaald: %s (bruikbaar: %s)", len(all_items), len(usable))
 
     return usable
 
@@ -131,6 +135,8 @@ def fetch_topdesk_incidents(limit=200):
         if len(results) < params["page_size"]:
             break
         params["start"] += params["page_size"]
+
+    logger.info("TOPdesk incidents opgehaald: %s (limit: %s)", len(all_items[:limit]), limit)
 
     return all_items[:limit]
 

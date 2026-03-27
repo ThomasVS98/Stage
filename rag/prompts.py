@@ -1,7 +1,9 @@
 import json
 import re
+from utils.logging import get_logger
 
 VALID_INTENTS = ["SUPPORT", "ALGEMEEN", "IRRELEVANT"]
+logger = get_logger(__name__)
 
 def extract_json(text:str):
     matches = re.findall(r"\{.*?\}", text, re.DOTALL)
@@ -101,7 +103,7 @@ def detect_intent(llm, query:str):
     prompt = detect_intent_prompt(query)
     response = llm.complete(prompt)
     raw = response.text.strip()
-    print("RAW INTENT: ",raw)
+    logger.info("RAW INTENT: %s", raw)
 
     json_str = extract_json(raw)
     if json_str:
@@ -109,15 +111,17 @@ def detect_intent(llm, query:str):
             data = json.loads(json_str)
             intent = data.get("intent","").upper()
             if intent in VALID_INTENTS:
+                logger.info("Gedetecteerde intent: %s", intent)
                 return intent
         except Exception as e:
-            print(f"Error occurred while parsing JSON: {e}")
+            logger.exception("Error occurred while parsing JSON: %s", e)
 
     raw_upper = raw.upper().strip()
     if raw_upper in VALID_INTENTS:
+        logger.info("Gedetecteerde intent via fallback: %s", raw_upper)
         return raw_upper
     
-    print("Intent detection failed for output:", raw)
+    logger.warning("Intent detection failed for output: %s", raw)
     return "ONBEKEND"
 
 def generate_answer(llm, context, query):
