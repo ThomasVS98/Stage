@@ -2,7 +2,10 @@ import os
 import requests
 from dotenv import load_dotenv
 import streamlit as st
+from ingestion.loader_registry import get_available_loaders
 from utils.logging import setup_logging, get_logger
+import ingestion.loaders.sharepoint_loader
+import ingestion.loaders.topdesk_loader
 
 load_dotenv()
 
@@ -24,10 +27,19 @@ if "intake_session_id" not in st.session_state:
 if "current_question" not in st.session_state:
     st.session_state.current_question = None
 
+@st.cache_data
+def get_sources():
+    res = requests.get(f"{API_BASE_URL}/sources")
+    return res.json()
+
+@st.cache_data
+def get_loader_types():
+    return get_available_loaders()
+
 # Admin functies
 with st.sidebar:
-    st.title("⚙️ Beheer")
-    st.info("Klik hieronder om de SharePoint pagina's/kennis-items/tickets opnieuw te synchroniseren.")
+    st.title("⚙️ Admin Beheer")
+    st.info("Klik hieronder om de kennisbronnen opnieuw te synchroniseren.")
     
     if st.button("🔄 Database Synchroniseren"):
         logger.info("Database synchronisatie gestart door gebruiker")
@@ -49,7 +61,105 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"Verbindingsfout: {str(e)}")
                 logger.exception("Verbindingsfout tijdens synchronisatie: %s", e)
-    
+    st.divider()
+    st.subheader("Bronnen configuratie")
+    try:
+        sources = get_sources()
+    except Exception as e:
+        st.error("Fout bij laden van bronnen")
+        logger.exception("Bronnen ophalen mislukt: %s", e)
+        sources = []
+
+    updated_sources = []
+    for i, src in enumerate(sources):
+        st.markdown(f"### Bron {i+1}")
+        available_types = get_loader_types()
+
+        if not available_types:
+            st.warning("Geen loaders beschikbaar/gevonden")
+
+        source_type = st.selectbox(
+            "Type",
+            options=available_types,
+            index=available_types.index(src["type"]) if src["type"] in available_types else 0,
+            key=f"type_{i}"
+        )
+
+        enabled = st.checkbox(
+            "Enabled",
+            value=src.get("enabled",True),
+            key=f"enabled_{i}"
+        )
+
+        config = src.get("config", {})
+        new_config = {}
+
+        for key, value in config.items():
+            new_value = st.text_input(
+                key,
+                value=str(value) if value else "",
+                key=f"{key}_{i}"
+            )
+            new_config[key] = new_value
+        updated_sources.append({
+            "type": source_type,
+            "enabled":enabled,
+            "config": new_config
+        })
+
+        if st.button(f"❌ Verwijder bron {i+1}", key=f"delete_{i}"):
+            new_sources = sources.copy()
+            new_sources.pop(i)
+
+            try:
+                requests.post(f"{API_BASE_URL}/sources", json=new_sources)
+                st.success("Bron verwijderd")
+                get_sources.clear()
+            except Exception as e:
+                st.error("Fout bij verwijderen")
+                logger.exception("Delete mislukt: %s", e)
+            
+            st.rerun()
+
+
+    st.divider()
+
+    if st.button("💾 Config opslaan"):
+        try:
+            res = requests.post(
+                f"{API_BASE_URL}/sources",
+                json=updated_sources
+            )
+            if res.status_code == 200:
+                st.success("Bron opgeslagen in config file")
+                get_sources.clear()
+            else:
+                st.error("Fout bij opslaan")
+        except Exception as e:
+            st.error("Verbindingsfout")
+            logger.exception("Config opslaan mislukt: %s", e)
+
+    if st.button("➕ Nieuwe bron toevoegen"):
+        new_sources = sources + [{
+            "type": "",
+            "enabled": True,
+            "config": {}
+        }]
+
+        try:
+            res = requests.post(
+                f"{API_BASE_URL}/sources", 
+                json=new_sources
+            )
+            if res.status_code == 200:
+                st.success("Nieuwe bron toegevoegd")
+                get_sources.clear()
+        except Exception as e:
+            st.error("Fout bij toevoegen")
+            logger.exception("Bron toevoegen mislukt: %s", e)
+
+        st.rerun()
+
 #Hoofdscherm
 st.title("IT Assistent")
 

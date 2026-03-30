@@ -6,6 +6,9 @@ import html
 import urllib.parse
 from markdownify import markdownify as md
 from ingestion.preprocessing.cleaning import normalize_text
+from ingestion.loader_registry import register_loader
+from llama_index.core import Document
+from ingestion.processing.file_processor import process_file, create_document_from_file
 from utils.logging import get_logger
 
 load_dotenv()
@@ -14,8 +17,9 @@ logger = get_logger(__name__)
 CLIENT_ID = os.getenv("SHAREPOINT_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SHAREPOINT_CLIENT_SECRET")
 TENANT_ID = os.getenv("SHAREPOINT_TENANT_ID")
-LMS_SITE_ID = os.getenv("LMS_SITE_ID")
-SERVICE_CATALOG_ID = os.getenv("SERVICE_CATALOG_ID")
+SHAREPOINT_BASE_URL = os.getenv("SHAREPOINT_BASE_URL")
+
+_token_cache = None
 
 def html_to_markdown(raw_html:str):
     if not raw_html:
@@ -30,7 +34,7 @@ def html_to_markdown(raw_html:str):
     for a in soup.find_all("a",href=True):
         href = urllib.parse.unquote(a["href"])
         if href.startswith("/"):
-            href = f"https://stagetm.sharepoint.com{href}"
+            href = f"{SHAREPOINT_BASE_URL}{href}"
         if not href.startswith("javascript:"):
             related_links.append({
                 "title": a.get_text(strip=True),
@@ -44,6 +48,11 @@ def html_to_markdown(raw_html:str):
     return text, related_links
 
 def get_headers():
+    global _token_cache
+
+    if _token_cache:
+        return {"Authorization": f"Bearer {_token_cache}"}
+
     token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
 
     token_data = {
@@ -53,7 +62,16 @@ def get_headers():
         "grant_type": "client_credentials"
     }
 
-    token = requests.post(token_url, data=token_data).json().get("access_token")
+    res = requests.post(token_url, data=token_data)
+    res.raise_for_status()
+
+    token = res.json().get("access_token")
+
+    if not token:
+        raise Exception("Geen access token ontvangen van Microsoft Graph API")
+    
+    _token_cache = token
+
     return {"Authorization": f"Bearer {token}"}
 
 def extract_page_content(page_details):
@@ -85,7 +103,6 @@ def build_folder_url(site_id, folder_id):
     return f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/items/{folder_id}/children"
 
 def fetch_all_sharepoint_pages(site_id, site_label):
-    logger.info("Ophalen Sharepoint pagina's van site: %s", site_label)
     headers = get_headers()
 
     pages_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/pages"
@@ -110,6 +127,8 @@ def fetch_all_sharepoint_pages(site_id, site_label):
             page_details = res_content.json()
             content_parts, all_links = extract_page_content(page_details)
             full_page_text = title + "\n\n" + "\n\n".join(content_parts)
+            if not full_page_text:
+                continue
 
         final_data.append({
             "content": full_page_text.strip(),
@@ -127,7 +146,6 @@ def fetch_all_sharepoint_pages(site_id, site_label):
     return final_data
     
 def fetch_sharepoint_files(site_id, site_label):
-    logger.info("Ophalen Sharepoint bestanden van site: %s", site_label)
     headers = get_headers()
 
     final_files = []
@@ -185,3 +203,67 @@ def download_sharepoint_file(download_url, save_path):
     except Exception as e:
         logger.exception("Fout bij downloaden: %s", e)
         return False
+    
+@register_loader("sharepoint")
+def load_sharepoint_source(config: dict):
+    """
+    Nieuwe generieke loader voor SharePoint kennisbronnen.
+    Gebruikt config ipv hardcoded env variabelen.
+    """
+
+    site_id = config.get("site_id")
+    label = config.get("label", "SharePoint")
+
+    if not site_id:
+        logger.warning("Geen site_id gevonden in config voor SharePoint bron")
+        return []
+    
+    docs = []
+
+    logger.info("SharePoint pagina's ophalen: %s", label)
+    pages = fetch_all_sharepoint_pages(site_id, label)
+
+    for page in pages:
+        full_text = page["content"]
+
+        new_doc = Document(
+            text=full_text,
+            metadata=page["metadata"]
+        )
+
+        new_doc.metadata["source_type"] = "sharepoint_page"
+        new_doc.excluded_embed_metadata_keys = ["url","source_id"]
+        new_doc.excluded_llm_metadata_keys = ["url", "source_id"]
+        
+        docs.append(new_doc)
+
+    logger.info("SharePoint bestanden ophalen: %s", label)
+    files = fetch_sharepoint_files(site_id, label)
+
+    temp_dir = "./temp_sharepoint"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    for file in files:
+        meta = file["metadata"]
+        filename = meta["filename"]
+        dl_url = meta["download_url"]
+        if not dl_url:
+            logger.warning("Geen download URL voor bestand: %s", filename)
+            continue
+        file_path = os.path.join(temp_dir, filename)
+
+        logger.info("Downloaden: %s...", filename)
+
+        if not download_sharepoint_file(dl_url, file_path):
+            logger.warning("Download mislukt: %s", filename)
+            continue
+
+        full_content = process_file(file_path, filename)
+        new_doc = create_document_from_file(full_content, meta)
+        
+        if new_doc:
+            docs.append(new_doc)
+    
+    logger.info("SharePoint docs totaal: %s", len(docs))
+
+    return docs
