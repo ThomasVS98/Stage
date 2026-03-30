@@ -5,6 +5,7 @@ from llama_index.core import Document
 from markdownify import markdownify as md
 import html
 from ingestion.preprocessing.cleaning import clean_text, clean_topdesk_text, normalize_text
+from ingestion.loader_registry import register_loader
 from dotenv import load_dotenv
 from utils.logging import get_logger
 
@@ -108,8 +109,8 @@ def fetch_topdesk_documents():
     items = fetch_topdesk_knowledge_items()
     return topdesk_items_to_documents(items)
 
-def fetch_topdesk_incidents(limit=200):
-    url = f"{TOPDESK_BASE_URL}tas/api/incidents"
+def fetch_topdesk_incidents(limit=300):
+    url = f"{TOPDESK_BASE_URL}/tas/api/incidents"
 
     params = {
         "page_size":50,
@@ -162,10 +163,31 @@ Details:
         meta = {
             "source": "topdesk",
             "source_type": "incident",
-            "number": number
+            "number": number,
+            "source_id": item.get("id")
         }
 
         doc = Document(text=text, metadata=meta)
         docs.append(doc)
+
+    return docs
+
+@register_loader("topdesk")
+def load_topdesk_source(config: dict):
+    """Loader voor TOPdesk bronnen.
+    Haalt knowledge items op
+    """
+
+    docs = []
+
+    include_kb = config.get("include_kb", True)
+
+    try:
+        if include_kb:
+            kb_docs = fetch_topdesk_documents()
+            logger.info("Topdesk kennis-items docs: %s", len(kb_docs))
+            docs.extend(kb_docs)
+    except Exception as e:
+        logger.exception("Fout bij ophalen van TOPdesk data: %s", e)
 
     return docs

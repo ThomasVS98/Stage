@@ -8,6 +8,11 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+embed_model = HuggingFaceEmbedding(
+        model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        normalize=True
+    )
+
 def build_ticket_index(limit=200):
     logger.info("Topdesk tickets ophalen...")
 
@@ -17,18 +22,13 @@ def build_ticket_index(limit=200):
     documents = incidents_to_documents(items)
     logger.info("%s documenten gemaakt", len(documents))
 
-    embed_model = HuggingFaceEmbedding(
-        model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-        normalize=True
-    )
-
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
 
     try:
         chroma_client.delete_collection("tickets")
         logger.info("Bestaande tickets collectie verwijderd")
     except Exception as e:
-        logger.info("Geen bestaande tickets collectie om te verwijderen: %s", e)
+        logger.exception("Geen bestaande tickets collectie om te verwijderen: %s", e)
 
     collection = chroma_client.get_or_create_collection(
         name = "tickets",
