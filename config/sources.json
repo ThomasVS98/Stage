@@ -19,9 +19,9 @@
     "type": "topdesk",
     "enabled": true,
     "config": {
-        "include_kb": true,
-        "include_incidents": false,
-        "incident_limit": 200
+      "include_kb": true,
+      "include_incidents": false,
+      "incident_limit": 300
     }
   }
 ]

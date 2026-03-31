@@ -204,7 +204,10 @@ def download_sharepoint_file(download_url, save_path):
         logger.exception("Fout bij downloaden: %s", e)
         return False
     
-@register_loader("sharepoint")
+@register_loader("sharepoint", schema={
+    "site_id": {"type": "string", "required": True},
+    "label": {"type": "string", "required": False}
+})
 def load_sharepoint_source(config: dict):
     """
     Nieuwe generieke loader voor SharePoint kennisbronnen.

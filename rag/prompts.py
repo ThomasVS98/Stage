@@ -75,17 +75,29 @@ def answer_prompt(context:str, query:str)->str:
 
     RICHTLIJNEN:
     1. Antwoord uitsluitend op basis van de onderstaande context.
-    2. Gebruik enkel expliciete informatie; maak onder geen omstandigheden aannames of eigen interpretaties.
+    2. Gebruik enkel expliciete informatie uit de context.
+       Voeg niets toe en laat niets weg.
+       Je mag de informatie NIET samenvatten, herinterpreteren of vereenvoudigen.
     3. Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
     4. Zeg alleen "ik heb niet genoeg informatie" wanneer er GEEN bruikbare informatie in de context staat om de vraag praktisch te beantwoorden.
     5. Gebruik GEEN verwijzingen naar documenten, titels of bronnen in je antwoord.
     6. Noem tijdslimieten, aantallen, voorwaarden en volgorde precies zoals ze in de context staan. Geef procedures en deadlines letterlijk weer.
     7. Schrijf een direct antwoord voor de gebruiker. Gebruik NOOIT formuleringen zoals "volgens de context", "in de tekst staat", "het document zegt" of gelijkaardige bronverwijzingen.
     8. Geef NOOIT je eigen mening of interpretaties. Volg de informatie van de context.
-    9. Geef een volledig antwoord: neem alle relevante stappen, opties, uitzonderingen en waarschuwingen uit de context op. Laat niets zomaar weg.
-    10. Structureer je antwoord in korte bullets wanneer er meerdere stappen/voorwaarden zijn.
+    9. Geef een volledig antwoord: neem alle stappen, voorwaarden, uitzonderingen en waarschuwingen uit de context op.
+       Je mag GEEN enkel element weglaten, ook niet als het gelijkaardig lijkt aan andere elementen.
+    10. Gebruik een bullet list wanneer er meerdere stappen of voorwaarden zijn.
+        - Elk punt moet op een nieuwe lijn staan
+        - Laat een lege lijn tussen elk bullet point
+        - Elk bullet point bevat exact één voorwaarde of regel
     11. Als de context wel bruikbare informatie bevat, geef dan meteen een concreet antwoord zonder disclaimers over ontbrekende details.
         De rest kan blijven.
+    12. Als de context een opsomming bevat (bijvoorbeeld meerdere voorwaarden of datums), moet je elk element afzonderlijk overnemen.
+        Je mag deze NIET samenvoegen of reduceren.
+    13. Behoud alle tijdsvoorwaarden exact zoals in de context. Als er meerdere periodes of datums zijn, moet je elke periode expliciet vermelden.
+    14. Als twee regels op elkaar lijken, moet je ze toch apart vermelden. Je mag geen regels combineren tot één algemene regel.
+    15. Gebruik geen compacte of inline opsommingen. Schrijf elke bullet volledig uit op een aparte lijn.
+
 
     Context:
     {context}

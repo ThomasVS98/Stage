@@ -2,7 +2,7 @@ import os
 import requests
 from dotenv import load_dotenv
 import streamlit as st
-from ingestion.loader_registry import get_available_loaders
+from ingestion.loader_registry import get_available_loaders, get_schema
 from utils.logging import setup_logging, get_logger
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
@@ -72,72 +72,137 @@ with st.sidebar:
 
     updated_sources = []
     for i, src in enumerate(sources):
-        st.markdown(f"### Bron {i+1}")
-        available_types = get_loader_types()
+        with st.expander(f"Bron {i+1}: {src.get('type','nieuw')}"):
+            available_types = get_loader_types()
 
-        if not available_types:
-            st.warning("Geen loaders beschikbaar/gevonden")
+            if not available_types:
+                st.warning("Geen loaders beschikbaar/gevonden")
 
-        source_type = st.selectbox(
-            "Type",
-            options=available_types,
-            index=available_types.index(src["type"]) if src["type"] in available_types else 0,
-            key=f"type_{i}"
-        )
-
-        enabled = st.checkbox(
-            "Enabled",
-            value=src.get("enabled",True),
-            key=f"enabled_{i}"
-        )
-
-        config = src.get("config", {})
-        new_config = {}
-
-        for key, value in config.items():
-            new_value = st.text_input(
-                key,
-                value=str(value) if value else "",
-                key=f"{key}_{i}"
+            source_type = st.selectbox(
+                "Type",
+                options=available_types,
+                index=available_types.index(src["type"]) if src["type"] in available_types else 0,
+                key=f"type_{i}"
             )
-            new_config[key] = new_value
-        updated_sources.append({
-            "type": source_type,
-            "enabled":enabled,
-            "config": new_config
-        })
 
-        if st.button(f"❌ Verwijder bron {i+1}", key=f"delete_{i}"):
-            new_sources = sources.copy()
-            new_sources.pop(i)
+            type_key = f"type_state_{i}"
 
-            try:
-                requests.post(f"{API_BASE_URL}/sources", json=new_sources)
-                st.success("Bron verwijderd")
-                get_sources.clear()
-            except Exception as e:
-                st.error("Fout bij verwijderen")
-                logger.exception("Delete mislukt: %s", e)
-            
-            st.rerun()
+            if type_key not in st.session_state:
+                st.session_state[type_key] = source_type
+                config = src.get("config", {})
+
+            elif st.session_state[type_key] != source_type:
+                st.session_state[type_key] = source_type
+
+                config = {}
+
+                for k in list(st.session_state.keys()):
+                    if k.endswith(f"_{i}") and not k.startswith("type_state"):
+                        del st.session_state[k]
+            else:
+                config = src.get("config", {})
+
+            enabled = st.checkbox(
+                "Enabled",
+                value=src.get("enabled",True),
+                key=f"enabled_{i}"
+            )
+
+            schema = get_schema(source_type)
+            new_config = {}
+
+
+            for field, rules in schema.items():
+                field_type = rules.get("type")
+                key = f"{field}_{i}"
+
+                default = config.get(field)
+                if default is None:
+                    default = rules.get("default")
+
+                if field_type == "bool":
+                    default = bool(default) if default is not None else False
+                
+                elif field_type == "int":
+                    try:
+                        default = int(default)
+                    except:
+                        default = rules.get("default", 0)
+
+                if key not in st.session_state:
+                    st.session_state[key] = default
+
+                if field_type == "bool":
+                    st.checkbox(
+                        field,
+                        key=key
+                    )
+                elif field_type == "int":
+                    st.number_input(
+                        field,
+                        key=key,
+                        step = 1,
+                        format = "%d"
+                    )
+                else:
+                    st.text_input(
+                        field,
+                        key=key
+                    )
+                new_config[field] = st.session_state[key]
+
+
+            updated_sources.append({
+                "type": source_type,
+                "enabled":enabled,
+                "config": new_config
+            })
+
+            if st.button(f"❌ Verwijder bron {i+1}", key=f"delete_{i}"):
+                new_sources = sources.copy()
+                new_sources.pop(i)
+
+                try:
+                    requests.post(f"{API_BASE_URL}/sources", json=new_sources)
+                    st.success("Bron verwijderd")
+                    get_sources.clear()
+                except Exception as e:
+                    st.error("Fout bij verwijderen")
+                    logger.exception("Delete mislukt: %s", e)
+                
+                st.rerun()
+
+            if st.button(f"💾 Opslaan bron {i+1}", key=f"save_{i}"):
+                latest_sources = get_sources()
+                new_sources = latest_sources.copy()
+                new_sources[i] = {
+                    "type": source_type,
+                    "enabled": enabled,
+                    "config": new_config
+                }
+
+                st.write("DEBUG - new_config:", new_config)
+                st.write("DEBUG - new_sources[i]:", new_sources[i])
+
+                try:
+                    res = requests.post(
+                        f"{API_BASE_URL}/sources",
+                        json=new_sources
+                    )
+
+                    if res.status_code == 200:
+                        st.success("Bron opgeslagen")
+                        get_sources.clear()
+                    else:
+                        st.error("Fout bij opslaan")
+                except Exception as e:
+                    st.error("Fout bij opslaan")
+                    logger.exception("Opslaan mislukt: %s", e)
+
+                st.rerun()
 
 
     st.divider()
-
-    if st.button("💾 Config opslaan"):
-        try:
-            res = requests.post(
-                f"{API_BASE_URL}/sources",
-                json=updated_sources
-            )
-            if res.status_code == 200:
-                st.success("Bron opgeslagen in config file")
-                get_sources.clear()
-            else:
-                st.error("Fout bij opslaan")
-        except Exception as e:
-            st.error("Verbindingsfout")
-            logger.exception("Config opslaan mislukt: %s", e)
 
     if st.button("➕ Nieuwe bron toevoegen"):
         new_sources = sources + [{

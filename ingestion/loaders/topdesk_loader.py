@@ -172,7 +172,12 @@ Details:
 
     return docs
 
-@register_loader("topdesk")
+@register_loader("topdesk", schema={
+    "include_kb": {"type": "bool", "default": True},
+    "include_incidents": {"type": "bool", "default": False},
+    "incident_limit": {"type": "int", "default": 200}
+
+})
 def load_topdesk_source(config: dict):
     """Loader voor TOPdesk bronnen.
     Haalt knowledge items op
