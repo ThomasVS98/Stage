@@ -1,17 +1,12 @@
 import chromadb
 from ingestion.loaders.topdesk_loader import fetch_topdesk_incidents, incidents_to_documents
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.core.node_parser import SentenceSplitter
+from rag.embedding import embed_model
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-embed_model = HuggingFaceEmbedding(
-        model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-        normalize=True
-    )
 
 def build_ticket_index(limit=200):
     logger.info("Topdesk tickets ophalen...")
@@ -27,8 +22,8 @@ def build_ticket_index(limit=200):
     try:
         chroma_client.delete_collection("tickets")
         logger.info("Bestaande tickets collectie verwijderd")
-    except Exception as e:
-        logger.exception("Geen bestaande tickets collectie om te verwijderen: %s", e)
+    except Exception:
+        logger.info("Geen tickets collectie om te verwijderen")
 
     collection = chroma_client.get_or_create_collection(
         name = "tickets",

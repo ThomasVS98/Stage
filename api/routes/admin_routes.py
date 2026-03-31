@@ -7,6 +7,7 @@ from utils.logging import get_logger
 from pydantic import BaseModel
 from typing import Dict, Any
 from ingestion.loader_registry import get_schema
+import os, psutil
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -81,14 +82,26 @@ def validate_source(source: SourceModel):
 async def trigger_ingest():
     try:
         logger.info("Ingestie gestart...")
+
+        process = psutil.Process(os.getpid())
+        logger.info(f"RAM start: {process.memory_info().rss / 1024**2:.2f} MB")
+
         documents = load_all_data()
+
+        process = psutil.Process(os.getpid())
+        logger.info(f"RAM na load: {process.memory_info().rss / 1024**2:.2f} MB")
+
         if documents:
             build_index(documents)
             logger.info("%s docs geindexeerd", len(documents))
+            process = psutil.Process(os.getpid())
+            logger.info(f"RAM na indexeren: {process.memory_info().rss / 1024**2:.2f} MB")
         else:
             logger.info("Geen docs gevonden")
             
         logger.info("Start tickets ingestie...") 
+        process = psutil.Process(os.getpid())
+        logger.info(f"RAM voor tickets: {process.memory_info().rss / 1024**2:.2f} MB")
 
         sources = load_source_config()
         ticket_limit = 200  
@@ -100,16 +113,29 @@ async def trigger_ingest():
                 break
 
         build_ticket_index(limit=ticket_limit)
+        process = psutil.Process(os.getpid())
+        logger.info(f"RAM na tickets: {process.memory_info().rss / 1024**2:.2f} MB")
         logger.info("Tickets geïndexeerd.")
 
         cleanup_temp_files()
 
         reload_index("docs")  # Zorg ervoor dat de query module de nieuwe index gebruikt
         reload_index("tickets")
+
+        def get_folder_size(path):
+            total = 0
+            for dirpath, _, filenames in os.walk(path):
+                for f in filenames:
+                    fp = os.path.join(dirpath, f)
+                    total += os.path.getsize(fp)
+            return total/ (1024*1024)  # Return size in MB
+        size = get_folder_size("./chroma_db")
+        logger.info(f"ChromaDB grootte: {size:.2f} MB")
         return {
             "status": "success", 
             "message": f"Succes! {len(documents)} documenten geïndexeerd en tickets geïndexeerd."
             }
+    
     except Exception as e:
         logger.exception("Fout tijdens ingestie: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))

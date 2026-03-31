@@ -3,13 +3,9 @@ from llama_index.core import VectorStoreIndex
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.logging import get_logger
+from rag.embedding import embed_model
 
 logger = get_logger(__name__)
-
-embed_model = HuggingFaceEmbedding(
-    model_name = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-    normalize=True
-)
 
 cache = {}
 

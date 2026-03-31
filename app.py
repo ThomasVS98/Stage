@@ -26,6 +26,8 @@ if "intake_session_id" not in st.session_state:
     st.session_state.intake_session_id = None
 if "current_question" not in st.session_state:
     st.session_state.current_question = None
+if "adding_source" not in st.session_state:
+    st.session_state.adding_source = False
 
 @st.cache_data
 def get_sources():
@@ -204,27 +206,87 @@ with st.sidebar:
 
 
     st.divider()
-
     if st.button("➕ Nieuwe bron toevoegen"):
-        new_sources = sources + [{
-            "type": "",
-            "enabled": True,
-            "config": {}
-        }]
+        st.session_state.adding_source = True
 
-        try:
-            res = requests.post(
-                f"{API_BASE_URL}/sources", 
-                json=new_sources
-            )
-            if res.status_code == 200:
-                st.success("Nieuwe bron toegevoegd")
-                get_sources.clear()
-        except Exception as e:
-            st.error("Fout bij toevoegen")
-            logger.exception("Bron toevoegen mislukt: %s", e)
+    # if st.button("➕ Nieuwe bron toevoegen"):
+    #     new_sources = sources + [{
+    #         "type": "",
+    #         "enabled": True,
+    #         "config": {}
+    #     }]
 
-        st.rerun()
+    if st.session_state.adding_source:
+        st.subheader("Nieuwe bron toevoegen")
+
+        available_types = get_loader_types()
+
+        new_type = st.selectbox(
+            "Type",
+            options=available_types,
+            key="new_type"
+        )
+
+        schema = get_schema(new_type)
+        new_config = {}
+
+        for field, rules in schema.items():
+            field_type = rules.get("type")
+            key = f"new_{field}"
+
+            default = rules.get("default")
+            if field_type == "bool":
+                val = st.checkbox(
+                    field,
+                    value=bool(default),
+                    key=key
+                )
+            elif field_type == "int":
+                val = st.number_input(
+                    field,
+                    value=int(default or 0),
+                    step=1,
+                    format="%d",
+                    key=key
+                )
+            else:
+                val = st.text_input(
+                    field,
+                    value=str(default or ""),
+                    key=key
+                )
+            new_config[field] = val
+
+        enabled = st.checkbox("Enabled", value=True, key="new_enabled")
+        if st.button("Toevoegen"):
+            new_source = {
+                "type": new_type,
+                "enabled": enabled,
+                "config": new_config
+            }
+
+            try:
+                res = requests.post(
+                    f"{API_BASE_URL}/sources",
+                    json=sources + [new_source]
+                )
+
+                if res.status_code == 200:
+                    st.success("Bron toegevoegd")
+                    get_sources.clear()
+                    st.session_state.adding_source = False
+                    st.rerun()
+                else:
+                    error = (res.json().get("detail", "Fout"))
+                    st.error(f"Backend fout: {error}")
+            except Exception as e:
+                st.error("Fout bij toevoegen")
+                logger.exception("Toevoegen mislukt: %s", e)
+
+
+        if st.button("Annuleren"):
+            st.session_state.adding_source = False
+            st.rerun()
 
 #Hoofdscherm
 st.title("IT Assistent")

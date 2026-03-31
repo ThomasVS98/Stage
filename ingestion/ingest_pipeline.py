@@ -1,11 +1,11 @@
-import os
+import os, psutil
 import chromadb
 from dotenv import load_dotenv
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core.node_parser import SentenceSplitter
 from ingestion.loader_registry import get_loader
+from rag.embedding import embed_model
 import shutil
 from utils.logging import get_logger, setup_logging
 from utils.config_loader import load_source_config
@@ -16,11 +16,6 @@ load_dotenv()
 setup_logging()
 
 logger = get_logger(__name__)
-
-embed_model = HuggingFaceEmbedding(
-        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-        normalize=True
-    )
 
 def load_all_data():
     all_docs = []
@@ -72,8 +67,8 @@ def build_index(documents):
     try:
         chroma_client.delete_collection("docs")
         logger.info("Bestaande collectie 'docs' verwijderd.")
-    except Exception as e:
-        logger.exception("Fout bij verwijderen van collectie: %s", e)
+    except Exception:
+        logger.info("Geen collectie docs om te verwijderen")
         pass
     
     chroma_collection = chroma_client.get_or_create_collection(
@@ -101,12 +96,3 @@ def cleanup_temp_files(temp_dir="./temp_sharepoint"):
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
         logger.info("Tijdelijke map %s verwijderd.", temp_dir)
-
-if __name__ == "__main__":
-
-    docs = load_all_data()
-    if docs:
-        build_index(docs)
-        cleanup_temp_files()
-    else:
-        logger.warning("Geen documenten gevonden om te verwerken")
