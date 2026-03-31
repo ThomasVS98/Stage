@@ -186,12 +186,22 @@ def load_topdesk_source(config: dict):
     docs = []
 
     include_kb = config.get("include_kb", True)
+    include_incidents = config.get("include_incidents", False)
 
     try:
         if include_kb:
             kb_docs = fetch_topdesk_documents()
             logger.info("Topdesk kennis-items docs: %s", len(kb_docs))
             docs.extend(kb_docs)
+
+        if include_incidents:
+            incidents = fetch_topdesk_incidents(
+                limit=config.get("incident_limit", 200)
+            )
+            incident_docs = incidents_to_documents(incidents)
+            docs.extend(incident_docs)
+            logger.info("Topdesk incidents docs in kennisbronnen: %s", len(incidents))
+    
     except Exception as e:
         logger.exception("Fout bij ophalen van TOPdesk data: %s", e)
 
