@@ -194,7 +194,8 @@ with st.sidebar:
                         st.success("Bron opgeslagen")
                         get_sources.clear()
                     else:
-                        st.error("Fout bij opslaan")
+                        error = res.json().get("detail", "Onbekende fout")
+                        st.error(error)
                 except Exception as e:
                     st.error("Fout bij opslaan")
                     logger.exception("Opslaan mislukt: %s", e)
