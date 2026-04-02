@@ -26,10 +26,7 @@ def extract_with_docling(file_path:str) -> str:
         result = converter.convert(file_path)
 
         text = result.document.export_to_markdown()
-
-        result_id = id(result)
         del result
-        # gc.collect()
 
         return text.strip()
     

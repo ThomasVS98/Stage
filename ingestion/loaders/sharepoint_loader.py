@@ -10,16 +10,12 @@ from ingestion.loader_registry import register_loader
 from llama_index.core import Document
 from ingestion.processing.file_processor import process_file, create_document_from_file
 from utils.logging import get_logger
+from clients.ms_graph_client import get_graph_headers
 
 load_dotenv()
 logger = get_logger(__name__)
 
-CLIENT_ID = os.getenv("SHAREPOINT_CLIENT_ID")
-CLIENT_SECRET = os.getenv("SHAREPOINT_CLIENT_SECRET")
-TENANT_ID = os.getenv("SHAREPOINT_TENANT_ID")
 SHAREPOINT_BASE_URL = os.getenv("SHAREPOINT_BASE_URL")
-
-_token_cache = None
 
 def html_to_markdown(raw_html:str):
     if not raw_html:
@@ -46,33 +42,6 @@ def html_to_markdown(raw_html:str):
     text = html.unescape(text)
     text = normalize_text(text)
     return text, related_links
-
-def get_headers():
-    global _token_cache
-
-    if _token_cache:
-        return {"Authorization": f"Bearer {_token_cache}"}
-
-    token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
-
-    token_data = {
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
-        "scope": "https://graph.microsoft.com/.default",
-        "grant_type": "client_credentials"
-    }
-
-    res = requests.post(token_url, data=token_data)
-    res.raise_for_status()
-
-    token = res.json().get("access_token")
-
-    if not token:
-        raise Exception("Geen access token ontvangen van Microsoft Graph API")
-    
-    _token_cache = token
-
-    return {"Authorization": f"Bearer {token}"}
 
 def extract_page_content(page_details):
     content_parts = []
@@ -103,7 +72,7 @@ def build_folder_url(site_id, folder_id):
     return f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/items/{folder_id}/children"
 
 def fetch_all_sharepoint_pages(site_id, site_label):
-    headers = get_headers()
+    headers = get_graph_headers()
 
     pages_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/pages"
     res_pages = requests.get(pages_url, headers=headers)
@@ -146,7 +115,7 @@ def fetch_all_sharepoint_pages(site_id, site_label):
     return final_data
     
 def fetch_sharepoint_files(site_id, site_label):
-    headers = get_headers()
+    headers = get_graph_headers()
 
     final_files = []
     folders_to_process = ["root"]

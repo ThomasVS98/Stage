@@ -10,6 +10,7 @@ from utils.logging import get_logger, setup_logging
 from utils.config_loader import load_source_config
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
+import ingestion.loaders.onedrive_loader
 
 load_dotenv()
 setup_logging()
@@ -106,17 +107,23 @@ def build_index(document_generator):
         index.insert(doc)
         count += 1
 
-        gc.collect()
-        logger.info("Progress: %s docs geïndexeerd. RAM: %.2f MB", count, psutil.Process().memory_info().rss / 1024**2)
+        if count % 20 == 0:
+            gc.collect()
+            logger.info("Progress: %s docs geïndexeerd. RAM: %.2f MB", count, psutil.Process().memory_info().rss / 1024**2)
 
     logger.info("Indexering klaar")
     gc.collect()
-    logger.info("Totaal aantal chuncks in vector store: %s", count) #chroma_collection.count())
+    logger.info("Totaal aantal chuncks in vector store: %s", chroma_collection.count())
 
-    #return index
     return count
 
-def cleanup_temp_files(temp_dir="./temp_sharepoint"):
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
-        logger.info("Tijdelijke map %s verwijderd.", temp_dir)
+def cleanup_temp_files():
+    temp_dirs = [
+        "./temp_sharepoint",
+        "./temp_onedrive"
+    ]
+    
+    for temp_dir in temp_dirs:
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+            logger.info("Tijdelijke map %s verwijderd.", temp_dir)

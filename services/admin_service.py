@@ -23,7 +23,7 @@ def run_full_ingestion():
     documents = load_all_data()
 
     process = psutil.Process(os.getpid())
-    logger.info(f"RAM na load: {process.memory_info().rss / 1024**2:.2f} MB")
+    logger.info(f"RAM na aanmaken load generator: {process.memory_info().rss / 1024**2:.2f} MB")
 
     doc_count = build_index(documents)
     del documents
