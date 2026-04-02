@@ -8,7 +8,6 @@ import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
 
 load_dotenv()
-
 setup_logging()
 logger = get_logger(__name__)
 
@@ -29,26 +28,131 @@ if "current_question" not in st.session_state:
 if "adding_source" not in st.session_state:
     st.session_state.adding_source = False
 
-@st.cache_data
-def get_sources():
-    res = requests.get(f"{API_BASE_URL}/sources")
-    return res.json()
+tab_chat, tab_admin = st.tabs(["💬 Chat", "⚙️ Admin"])
 
-@st.cache_data
-def get_loader_types():
-    return get_available_loaders()
+# Tab 1: Chat Interface
+with tab_chat:
+    st.title("IT Assistent")
+
+    with st.form("vraag_form"):
+        question = st.text_input("Stel een vraag")
+        submitted = st.form_submit_button("Vraag stellen")
+
+    if submitted and question:
+        logger.info("Vraag ontvangen in Streamlit")
+        with st.spinner("Bezig met het beantwoorden van de vraag..."):
+            try:
+                response = requests.post(f'{API_BASE_URL}/ask', json={"question": question})
+                data = response.json()
+
+                if data.get("action") == "INTAKE":
+                    res = requests.post(f"{API_BASE_URL}/intake/start",json={"original_question": question})
+                    intake_data = res.json()
+                    st.session_state.mode = "intake"
+                    st.session_state.intake_session_id = intake_data["session_id"]
+                    st.session_state.current_question = intake_data["question"]
+                    st.session_state.answer = None
+                    st.session_state.sources = []
+                    logger.info("Intake flow gestart")
+                else:
+                    st.session_state.mode = "chat"
+                    st.session_state.answer = data["answer"]
+                    st.session_state.sources = data["sources"]
+            except Exception as e:
+                st.error("Er is een fout opgetreden bij het stellen van de vraag.")
+                logger.exception("Fout bij vraag stellen: %s", e)
+
+    # Antwoord tonen
+    if st.session_state.answer:
+            st.subheader("Antwoord:")
+            st.write(st.session_state.answer)
+            if st.session_state.sources:
+                st.subheader("Bronnen:")
+                for source in st.session_state.sources:
+                    st.write(f"- {source}")
+
+    # Intake logica
+    if st.session_state.mode == "intake":
+        st.subheader("Intakeprocedure")
+        st.info(
+            "Ik kan met deze informatie geen volledig antwoord geven. "
+            "Daarom start ik een intakeprocedure zodat er een ticket kan worden aangemaakt. "
+            "Dit ticket zal vervolgens door de ICTS-dienst worden bekeken en behandeld."
+        )
+        st.write(st.session_state.current_question)
+
+        with st.form(key="intake_form"):
+            answer = st.text_input("Jouw antwoord", key=f"intake_input_{st.session_state.current_question}")
+            intake_submitted = st.form_submit_button("Volgende")
+
+        if intake_submitted:
+                if not answer:
+                    st.warning("Gelieve een antwoord in te vullen.")
+                else:
+                    res = requests.post(
+                        f"{API_BASE_URL}/intake/answer",
+                        json={"session_id": st.session_state.intake_session_id, "answer": answer}
+                    )
+                    if res.status_code != 200:
+                        error = res.json().get("detail", "Onbekende fout")
+                        st.error(error)
+                        st.stop()
+                    else:
+                        data = res.json()
+
+                    if data.get("error"):
+                        st.error(data["error"])
+                        st.session_state.mode = "chat"
+                        st.session_state.intake_session_id = None
+                        st.session_state.current_question = None
+                        st.stop()
+
+                    if data.get("done"):
+                        st.success("Intake afgerond")
+
+                        st.markdown("### Samenvatting van je aanvraag")
+                        st.write(f"**Probleem / aanvraag:** {data['data'].get('beschrijving')}")
+                        st.write(f"**Context:** {data['data'].get('context')}")
+                        st.write(f"**Doel:** {data['data'].get('doel')}")
+
+                        if data.get("similar_ticket"):
+                            st.warning("Er bestaat momenteel al minstens 1 ticket die mogelijk relevant is voor jouw aanvraag. De ICTS dienst zal dit verder bekijken.")
+                        if data.get("ticket"):
+                            st.success(
+                                    f"✅ Je ticket werd succesvol aangemaakt.\n\n"
+                                    f"**Ticketnummer:** {data['ticket']['number']}\n\n"
+                                    "De ICTS-dienst zal dit verder behandelen."
+                                )
+                            # st.json(data["data"])
+                            logger.info("Intake afgerond, ticket aangemaakt: %s", data["ticket"]["number"])
+
+                        st.session_state.mode = "chat"
+                        st.session_state.intake_session_id = None
+                        st.session_state.current_question = None
+                    else:
+                        st.session_state.current_question = data["question"]
+                        st.rerun()
 
 # Admin functies
-with st.sidebar:
-    st.title("⚙️ Admin Beheer")
-    st.info("Klik hieronder om de kennisbronnen opnieuw te synchroniseren.")
+with tab_admin:
+    @st.cache_data
+    def get_sources():
+        res = requests.get(f"{API_BASE_URL}/sources")
+        return res.json()
+
+    @st.cache_data
+    def get_loader_types():
+        return get_available_loaders()
     
+    st.header("Admin Beheer")
+
+    # Database synchronisatie
+    st.subheader("Database Synchronisatie")
     if st.button("🔄 Database Synchroniseren"):
         logger.info("Database synchronisatie gestart door gebruiker")
         with st.spinner("Bezig met ophalen van data... dit kan enkele minuten duren."):
             try:
                 res = requests.post(f"{API_BASE_URL}/ingest", timeout=600) 
-                
                 if res.status_code == 200:
                     status_msg = res.json().get('message', 'Database succesvol bijgewerkt!')
                     st.success(f"✅ {status_msg}")
@@ -63,7 +167,10 @@ with st.sidebar:
             except Exception as e:
                 st.error(f"Verbindingsfout: {str(e)}")
                 logger.exception("Verbindingsfout tijdens synchronisatie: %s", e)
+
     st.divider()
+
+    # Bestaande bronnen aanpassen
     st.subheader("Bronnen configuratie")
     try:
         sources = get_sources()
@@ -281,104 +388,3 @@ with st.sidebar:
             st.session_state.adding_source = False
             st.rerun()
 
-#Hoofdscherm
-st.title("IT Assistent")
-
-with st.form("vraag_form"):
-    question = st.text_input("Stel een vraag")
-    submitted = st.form_submit_button("Vraag stellen")
-
-if submitted:
-    if question:
-        logger.info("Vraag ontvangen in Streamlit")
-        with st.spinner("Bezig met het beantwoorden van de vraag..."):
-            response = requests.post(
-                f'{API_BASE_URL}/ask',
-                json={"question": question}
-            )
-        data = response.json()
-        if data.get("action") == "INTAKE":
-            res = requests.post(f"{API_BASE_URL}/intake/start",json={"original_question": question})
-            intake_data = res.json()
-
-            st.session_state.mode = "intake"
-            st.session_state.intake_session_id = intake_data["session_id"]
-            st.session_state.current_question = intake_data["question"]
-            st.session_state.answer = None
-            st.session_state.sources = []
-
-            logger.info("Intake flow gestart")
-        else:
-            st.session_state.mode = "chat"
-            st.session_state.answer = data["answer"]
-            st.session_state.sources = data["sources"]
-
-if st.session_state.answer:
-        st.subheader("Antwoord:")
-        st.write(st.session_state.answer)
-        if st.session_state.sources:
-            st.subheader("Bronnen:")
-            for source in st.session_state.sources:
-                st.write(f"- {source}")
-
-if st.session_state.mode == "intake":
-    st.subheader("Intakeprocedure")
-    st.info(
-        "Ik kan met deze informatie geen volledig antwoord geven. "
-        "Daarom start ik een intakeprocedure zodat er een ticket kan worden aangemaakt. "
-        "Dit ticket zal vervolgens door de ICTS-dienst worden bekeken en behandeld."
-    )
-    st.write(st.session_state.current_question)
-    with st.form(key="intake_form"):
-        answer = st.text_input("Jouw antwoord", key=f"intake_input_{st.session_state.current_question}")
-        submitted = st.form_submit_button("Volgende")
-    if submitted:
-            if not answer:
-                st.warning("Gelieve een antwoord in te vullen.")
-            else:
-                res = requests.post(
-                    f"{API_BASE_URL}/intake/answer",
-                    json={
-                        "session_id": st.session_state.intake_session_id,
-                        "answer": answer
-                    }
-                )
-                if res.status_code != 200:
-                    error = res.json().get("detail", "Onbekende fout")
-                    st.error(error)
-                    st.stop()
-                else:
-                    data = res.json()
-
-                if data.get("error"):
-                    st.error(data["error"])
-                    st.session_state.mode = "chat"
-                    st.session_state.intake_session_id = None
-                    st.session_state.current_question = None
-                    st.stop()
-
-                if data.get("done"):
-                    st.success("Intake afgerond")
-
-                    st.markdown("### Samenvatting van je aanvraag")
-                    st.write(f"**Probleem / aanvraag:** {data['data'].get('beschrijving')}")
-                    st.write(f"**Context:** {data['data'].get('context')}")
-                    st.write(f"**Doel:** {data['data'].get('doel')}")
-
-                    if data.get("similar_ticket"):
-                        st.warning("Er bestaat momenteel al minstens 1 ticket die mogelijk relevant is voor jouw aanvraag. De ICTS dienst zal dit verder bekijken.")
-                    if data.get("ticket"):
-                        st.success(
-                                f"✅ Je ticket werd succesvol aangemaakt.\n\n"
-                                f"**Ticketnummer:** {data['ticket']['number']}\n\n"
-                                "De ICTS-dienst zal dit verder behandelen."
-                            )
-                        # st.json(data["data"])
-                        logger.info("Intake afgerond, ticket aangemaakt: %s", data["ticket"]["number"])
-
-                    st.session_state.mode = "chat"
-                    st.session_state.intake_session_id = None
-                    st.session_state.current_question = None
-                else:
-                    st.session_state.current_question = data["question"]
-                    st.rerun()

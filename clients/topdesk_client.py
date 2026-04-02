@@ -39,7 +39,7 @@ def create_incident(data:dict)->dict:
             "id": "mock_id"
         }
     
-    url = f"{TOPDESK_BASE_URL}tas/api/incidents"
+    url = f"{TOPDESK_BASE_URL}/tas/api/incidents"
     payload = build_incident_payload(data)
 
     response = requests.post(
