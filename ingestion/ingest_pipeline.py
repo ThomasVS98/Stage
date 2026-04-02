@@ -42,8 +42,12 @@ def load_all_data():
 
         try:
             docs = loader(config)
-            logger.info("Aantal docs van %s: %s", source_type, len(docs))
-            all_docs.extend(docs)
+            count = 0
+            for doc in docs:
+                all_docs.append(doc)
+                count += 1
+            logger.info("Aantal docs van %s: %s", source_type, count) #len(docs))
+            # all_docs.extend(docs)
         except Exception as e:
             logger.exception("Fout bij laden van %s: %s", source_type, e)
         

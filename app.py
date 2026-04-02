@@ -209,13 +209,6 @@ with st.sidebar:
     if st.button("➕ Nieuwe bron toevoegen"):
         st.session_state.adding_source = True
 
-    # if st.button("➕ Nieuwe bron toevoegen"):
-    #     new_sources = sources + [{
-    #         "type": "",
-    #         "enabled": True,
-    #         "config": {}
-    #     }]
-
     if st.session_state.adding_source:
         st.subheader("Nieuwe bron toevoegen")
 
@@ -278,7 +271,7 @@ with st.sidebar:
                     st.rerun()
                 else:
                     error = (res.json().get("detail", "Fout"))
-                    st.error(f"Backend fout: {error}")
+                    st.error(error)
             except Exception as e:
                 st.error("Fout bij toevoegen")
                 logger.exception("Toevoegen mislukt: %s", e)

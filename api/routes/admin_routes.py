@@ -37,6 +37,14 @@ def validate_source(source: SourceModel):
     for field, rules in schema.items():
         value = source.config.get(field)
 
+        #Controleer op verplichte velden
+        is_required = rules.get("required", False)
+        if is_required and (value is None or (isinstance(value, str) and not value.strip())):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Veld '{field}' is verplicht voor type '{source.type}'"
+            )
+        
         if value is None:
             value = rules.get('default')
         
@@ -60,7 +68,7 @@ def validate_source(source: SourceModel):
                     value = bool(value)
 
             elif field_type == "int":
-                value = int(value)
+                value = int(value) if value is not None else 0
             elif field_type == "str":
                 value = str(value) if value is not None else ""
 
