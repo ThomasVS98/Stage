@@ -90,13 +90,9 @@ def answer_prompt(context:str, query:str)->str:
         - Elk punt moet op een nieuwe lijn staan
         - Laat een lege lijn tussen elk bullet point
         - Elk bullet point bevat exact één voorwaarde of regel
-    11. Als de context wel bruikbare informatie bevat, geef dan meteen een concreet antwoord zonder disclaimers over ontbrekende details.
-        De rest kan blijven.
-    12. Als de context een opsomming bevat (bijvoorbeeld meerdere voorwaarden of datums), moet je elk element afzonderlijk overnemen.
-        Je mag deze NIET samenvoegen of reduceren.
-    13. Behoud alle tijdsvoorwaarden exact zoals in de context. Als er meerdere periodes of datums zijn, moet je elke periode expliciet vermelden.
-    14. Als twee regels op elkaar lijken, moet je ze toch apart vermelden. Je mag geen regels combineren tot één algemene regel.
-    15. Gebruik geen compacte of inline opsommingen. Schrijf elke bullet volledig uit op een aparte lijn.
+    11. Behoud alle tijdsvoorwaarden exact zoals in de context. Als er meerdere periodes of datums zijn, moet je elke periode expliciet vermelden.
+    12. Als twee regels op elkaar lijken, moet je ze toch apart vermelden. Je mag geen regels combineren tot één algemene regel.
+    13. Gebruik geen compacte of inline opsommingen. Schrijf elke bullet volledig uit op een aparte lijn.
 
 
     Context:

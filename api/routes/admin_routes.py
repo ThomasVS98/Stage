@@ -1,13 +1,14 @@
 from fastapi import APIRouter, HTTPException, Body
 from ingestion.ingest_pipeline import build_index, load_all_data, cleanup_temp_files
 from ingestion.ingest_tickets import build_ticket_index
-from rag.index_store import reload_index
+from rag.vector_store import reload_index
 from utils.config_loader import load_source_config, save_source_config
 from utils.logging import get_logger
 from pydantic import BaseModel
 from typing import Dict, Any
 from ingestion.loader_registry import get_schema
-import os, psutil
+from services.admin_service import run_full_ingestion
+import os, psutil, gc
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -89,59 +90,12 @@ def validate_source(source: SourceModel):
 @router.post("/ingest")
 async def trigger_ingest():
     try:
-        logger.info("Ingestie gestart...")
+        logger.info("Ingestie verzoek ontvangen via API")
 
-        process = psutil.Process(os.getpid())
-        logger.info(f"RAM start: {process.memory_info().rss / 1024**2:.2f} MB")
-
-        documents = load_all_data()
-
-        process = psutil.Process(os.getpid())
-        logger.info(f"RAM na load: {process.memory_info().rss / 1024**2:.2f} MB")
-
-        if documents:
-            build_index(documents)
-            logger.info("%s docs geindexeerd", len(documents))
-            process = psutil.Process(os.getpid())
-            logger.info(f"RAM na indexeren: {process.memory_info().rss / 1024**2:.2f} MB")
-        else:
-            logger.info("Geen docs gevonden")
-            
-        logger.info("Start tickets ingestie...") 
-        process = psutil.Process(os.getpid())
-        logger.info(f"RAM voor tickets: {process.memory_info().rss / 1024**2:.2f} MB")
-
-        sources = load_source_config()
-        ticket_limit = 200  
-
-        for src in sources:
-            if src.get("type") == "topdesk" and src.get("enabled"):
-                cfg = src.get("config", {})
-                ticket_limit = cfg.get("incident_limit", 200)
-                break
-
-        build_ticket_index(limit=ticket_limit)
-        process = psutil.Process(os.getpid())
-        logger.info(f"RAM na tickets: {process.memory_info().rss / 1024**2:.2f} MB")
-        logger.info("Tickets geïndexeerd.")
-
-        cleanup_temp_files()
-
-        reload_index("docs")  # Zorg ervoor dat de query module de nieuwe index gebruikt
-        reload_index("tickets")
-
-        def get_folder_size(path):
-            total = 0
-            for dirpath, _, filenames in os.walk(path):
-                for f in filenames:
-                    fp = os.path.join(dirpath, f)
-                    total += os.path.getsize(fp)
-            return total/ (1024*1024)  # Return size in MB
-        size = get_folder_size("./chroma_db")
-        logger.info(f"ChromaDB grootte: {size:.2f} MB")
+        doc_count = run_full_ingestion()
         return {
             "status": "success", 
-            "message": f"Succes! {len(documents)} documenten geïndexeerd en tickets geïndexeerd."
+            "message": f"Succes! {doc_count} documenten geïndexeerd en tickets geïndexeerd." #{len(documents)}
             }
     
     except Exception as e:
@@ -164,4 +118,4 @@ async def update_sources(sources: list[SourceModel] = Body(...)):
 
     return {"status": "ok",
             "message": "Bronconfiguratie bijgewerkt."
-        }
+            }

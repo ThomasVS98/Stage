@@ -263,6 +263,11 @@ def load_sharepoint_source(config: dict):
             continue
 
         full_content = process_file(file_path, filename)
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            logger.exception("Fout bij verwijderen tijdelijk bestand %s: %s", filename, e)
+
         new_doc = create_document_from_file(full_content, meta)
         
         if new_doc:

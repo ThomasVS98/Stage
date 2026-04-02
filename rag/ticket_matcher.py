@@ -1,6 +1,6 @@
 from rag.retriever import retrieve_nodes
 from rag.reranker import rerank_nodes
-from rag.index_store import get_index
+from rag.vector_store import get_index
 from utils.logging import get_logger
 
 SIMILARITY_THRESHOLD = 0.65

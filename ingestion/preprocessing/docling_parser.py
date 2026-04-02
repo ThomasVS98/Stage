@@ -27,11 +27,15 @@ def extract_with_docling(file_path:str) -> str:
 
         text = result.document.export_to_markdown()
 
+        result_id = id(result)
         del result
-        gc.collect()
+        # gc.collect()
 
         return text.strip()
     
     except Exception as e:
         logger.exception("Fout bij het verwerken van %s: %s", file_path, e)
         return ""
+    
+    finally:
+        gc.collect()

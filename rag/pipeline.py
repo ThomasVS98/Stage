@@ -1,4 +1,4 @@
-from rag.index_store import get_index
+from rag.vector_store import get_index
 from rag.retriever import retrieve_nodes
 from rag.reranker import rerank_nodes
 from rag.context_builder import build_context
