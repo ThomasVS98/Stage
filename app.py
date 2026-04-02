@@ -6,6 +6,7 @@ from ingestion.loader_registry import get_available_loaders, get_schema
 from utils.logging import setup_logging, get_logger
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
+import ingestion.loaders.onedrive_loader
 
 load_dotenv()
 setup_logging()
@@ -64,12 +65,12 @@ with tab_chat:
 
     # Antwoord tonen
     if st.session_state.answer:
-            st.subheader("Antwoord:")
-            st.write(st.session_state.answer)
-            if st.session_state.sources:
-                st.subheader("Bronnen:")
-                for source in st.session_state.sources:
-                    st.write(f"- {source}")
+        st.subheader("Antwoord:")
+        st.markdown(st.session_state.answer)
+        if st.session_state.sources:
+            st.subheader("Bronnen:")
+            for source in st.session_state.sources:
+                st.write(f"- {source}")
 
     # Intake logica
     if st.session_state.mode == "intake":
@@ -86,19 +87,19 @@ with tab_chat:
             intake_submitted = st.form_submit_button("Volgende")
 
         if intake_submitted:
-                if not answer:
-                    st.warning("Gelieve een antwoord in te vullen.")
+            if not answer:
+                st.warning("Gelieve een antwoord in te vullen.")
+            else:
+                res = requests.post(
+                    f"{API_BASE_URL}/intake/answer",
+                    json={"session_id": st.session_state.intake_session_id, "answer": answer}
+                )
+                if res.status_code != 200:
+                    error = res.json().get("detail", "Onbekende fout")
+                    st.error(error)
+                    st.stop()
                 else:
-                    res = requests.post(
-                        f"{API_BASE_URL}/intake/answer",
-                        json={"session_id": st.session_state.intake_session_id, "answer": answer}
-                    )
-                    if res.status_code != 200:
-                        error = res.json().get("detail", "Onbekende fout")
-                        st.error(error)
-                        st.stop()
-                    else:
-                        data = res.json()
+                    data = res.json()
 
                     if data.get("error"):
                         st.error(data["error"])
@@ -107,7 +108,7 @@ with tab_chat:
                         st.session_state.current_question = None
                         st.stop()
 
-                    if data.get("done"):
+                    elif data.get("done"):
                         st.success("Intake afgerond")
 
                         st.markdown("### Samenvatting van je aanvraag")

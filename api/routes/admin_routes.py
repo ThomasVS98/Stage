@@ -1,14 +1,10 @@
 from fastapi import APIRouter, HTTPException, Body
-from ingestion.ingest_pipeline import build_index, load_all_data, cleanup_temp_files
-from ingestion.ingest_tickets import build_ticket_index
-from rag.vector_store import reload_index
 from utils.config_loader import load_source_config, save_source_config
 from utils.logging import get_logger
 from pydantic import BaseModel
 from typing import Dict, Any
 from ingestion.loader_registry import get_schema
 from services.admin_service import run_full_ingestion
-import os, psutil, gc
 
 router = APIRouter()
 logger = get_logger(__name__)

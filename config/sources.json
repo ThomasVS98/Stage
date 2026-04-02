@@ -1,7 +1,7 @@
 [
   {
     "type": "sharepoint",
-    "enabled": true,
+    "enabled": false,
     "config": {
       "site_id": "stagetm.sharepoint.com,c75f80ab-6ebc-4c23-b866-b7f97e424a1b,8dadf00b-9510-49da-ab4a-1f2ef1377b53",
       "label": "LMS Site"
@@ -9,7 +9,7 @@
   },
   {
     "type": "sharepoint",
-    "enabled": true,
+    "enabled": false,
     "config": {
       "site_id": "stagetm.sharepoint.com,8d849f45-945f-4f31-932c-66d554b0f75f,8dadf00b-9510-49da-ab4a-1f2ef1377b53",
       "label": "IT Service Catalog"
@@ -17,11 +17,27 @@
   },
   {
     "type": "topdesk",
-    "enabled": true,
+    "enabled": false,
     "config": {
       "include_kb": true,
       "include_incidents": false,
       "incident_limit": 200
+    }
+  },
+  {
+    "type": "sharepoint",
+    "enabled": true,
+    "config": {
+      "site_id": "stagetm.sharepoint.com,ad3bbd49-bc16-4530-ba60-a60c7fe885bc,1e7d46e8-590b-4e51-b1eb-320efa70bbc9",
+      "label": "ICTS"
+    }
+  },
+  {
+    "type": "onedrive",
+    "enabled": true,
+    "config": {
+      "user_id": "ThomasVS@stagetm.onmicrosoft.com",
+      "label": "OneDrive"
     }
   }
 ]

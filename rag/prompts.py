@@ -93,6 +93,7 @@ def answer_prompt(context:str, query:str)->str:
     11. Behoud alle tijdsvoorwaarden exact zoals in de context. Als er meerdere periodes of datums zijn, moet je elke periode expliciet vermelden.
     12. Als twee regels op elkaar lijken, moet je ze toch apart vermelden. Je mag geen regels combineren tot één algemene regel.
     13. Gebruik geen compacte of inline opsommingen. Schrijf elke bullet volledig uit op een aparte lijn.
+    14. Gebruik OF een genummerde lijst (1. 2. 3.) OF bullet points (-) MAAR combineer deze nooit.
 
 
     Context:
