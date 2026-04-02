@@ -3,6 +3,7 @@ from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.datamodel.base_models import InputFormat
 from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
 from utils.logging import get_logger
+import gc
 
 pipeline_options = PdfPipelineOptions()
 pipeline_options.do_ocr = False
@@ -25,6 +26,9 @@ def extract_with_docling(file_path:str) -> str:
         result = converter.convert(file_path)
 
         text = result.document.export_to_markdown()
+
+        del result
+        gc.collect()
 
         return text.strip()
     

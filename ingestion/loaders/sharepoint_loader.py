@@ -219,9 +219,9 @@ def load_sharepoint_source(config: dict):
 
     if not site_id:
         logger.warning("Geen site_id gevonden in config voor SharePoint bron")
-        return []
+        return #[]
     
-    docs = []
+    #docs = []
 
     logger.info("SharePoint pagina's ophalen: %s", label)
     pages = fetch_all_sharepoint_pages(site_id, label)
@@ -238,7 +238,8 @@ def load_sharepoint_source(config: dict):
         new_doc.excluded_embed_metadata_keys = ["url","source_id"]
         new_doc.excluded_llm_metadata_keys = ["url", "source_id"]
         
-        docs.append(new_doc)
+        #docs.append(new_doc)
+        yield new_doc
 
     logger.info("SharePoint bestanden ophalen: %s", label)
     files = fetch_sharepoint_files(site_id, label)
@@ -265,8 +266,9 @@ def load_sharepoint_source(config: dict):
         new_doc = create_document_from_file(full_content, meta)
         
         if new_doc:
-            docs.append(new_doc)
+            #docs.append(new_doc)
+            yield new_doc
     
-    logger.info("SharePoint docs totaal: %s", len(docs))
+    #logger.info("SharePoint docs totaal: %s", len(docs))
 
-    return docs
+    #return docs
