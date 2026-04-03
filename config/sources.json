@@ -1,5 +1,6 @@
 [
   {
+    "id": "9d2a34da-4717-41e9-b515-1ea406d258e0",
     "type": "sharepoint",
     "enabled": false,
     "config": {
@@ -8,6 +9,7 @@
     }
   },
   {
+    "id": "e9281a46-475a-4e32-a23e-7ab7ec6c1934",
     "type": "sharepoint",
     "enabled": false,
     "config": {
@@ -16,28 +18,13 @@
     }
   },
   {
+    "id": "3f8a05fd-4d34-4194-87c3-1b1fc7f5b5f0",
     "type": "topdesk",
-    "enabled": false,
+    "enabled": true,
     "config": {
       "include_kb": true,
       "include_incidents": false,
       "incident_limit": 200
-    }
-  },
-  {
-    "type": "sharepoint",
-    "enabled": true,
-    "config": {
-      "site_id": "stagetm.sharepoint.com,ad3bbd49-bc16-4530-ba60-a60c7fe885bc,1e7d46e8-590b-4e51-b1eb-320efa70bbc9",
-      "label": "ICTS"
-    }
-  },
-  {
-    "type": "onedrive",
-    "enabled": true,
-    "config": {
-      "user_id": "ThomasVS@stagetm.onmicrosoft.com",
-      "label": "OneDrive"
     }
   }
 ]

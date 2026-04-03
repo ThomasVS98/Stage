@@ -10,7 +10,7 @@ from ingestion.loader_registry import register_loader
 from llama_index.core import Document
 from ingestion.processing.file_processor import process_file, create_document_from_file
 from utils.logging import get_logger
-from clients.ms_graph_client import get_graph_headers
+from clients.ms_graph_client import graph_get
 
 load_dotenv()
 logger = get_logger(__name__)
@@ -72,14 +72,13 @@ def build_folder_url(site_id, folder_id):
     return f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/items/{folder_id}/children"
 
 def fetch_all_sharepoint_pages(site_id, site_label):
-    headers = get_graph_headers()
 
     pages_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/pages"
-    res_pages = requests.get(pages_url, headers=headers)
+    res_pages = graph_get(pages_url)
 
     final_data = []
     if res_pages.status_code != 200:
-            logger.warning("Error in ophalen SharePoint pagina's: %s", res_pages.status_code)
+            logger.warning("Error in ophalen SharePoint pagina's: %s | %s", res_pages.status_code, res_pages.text[:300])
             return []
     pages = res_pages.json().get('value', [])
     for page in pages:
@@ -88,7 +87,7 @@ def fetch_all_sharepoint_pages(site_id, site_label):
         url = page.get('webUrl')
 
         content_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}/microsoft.graph.sitePage?$expand=canvasLayout"
-        res_content = requests.get(content_url, headers=headers)
+        res_content = graph_get(content_url)
 
         full_page_text = ""
 
@@ -115,7 +114,6 @@ def fetch_all_sharepoint_pages(site_id, site_label):
     return final_data
     
 def fetch_sharepoint_files(site_id, site_label):
-    headers = get_graph_headers()
 
     final_files = []
     folders_to_process = ["root"]
@@ -129,8 +127,9 @@ def fetch_sharepoint_files(site_id, site_label):
             continue
         visited_folders.add(current_folder)
         url = build_folder_url(site_id, current_folder)
-        res = requests.get(url, headers=headers)
+        res = graph_get(url)
         if res.status_code != 200:
+            logger.warning("Graph call mislukt voor files: %s | %s", res.status_code, res.text[:300])
             continue
         items = res.json().get("value", [])
         for item in items:
@@ -162,7 +161,7 @@ def fetch_sharepoint_files(site_id, site_label):
 def download_sharepoint_file(download_url, save_path):
     """Download een bestand van SharePoint naar een lokale map."""
     try:
-        res = requests.get(download_url)
+        res = requests.get(download_url, timeout=30)
         if res.status_code == 200:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             with open(save_path, "wb") as f:
