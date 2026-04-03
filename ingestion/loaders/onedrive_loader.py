@@ -1,11 +1,9 @@
 import os, requests
 from ingestion.loader_registry import register_loader
-from dotenv import load_dotenv
 from clients.ms_graph_client import graph_get
 from ingestion.processing.file_processor import process_file, create_document_from_file
 from utils.logging import get_logger
 
-load_dotenv()
 logger = get_logger(__name__)
 
 def fetch_onedrive_files(user_id: str):

@@ -1,5 +1,5 @@
 import re
-from fastapi import HTTPException
+from utils.exceptions import ValidationError
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -29,22 +29,19 @@ def validate_answer(key: str, answer: str)->str:
     answer = re.sub(r"<.*?>","",answer)
 
     if not answer:
-        raise ValueError("Antwoord mag niet leeg zijn.")
+        raise ValidationError("Antwoord mag niet leeg zijn.")
     if key == "beschrijving":
         if len(answer) < 5:
-            raise HTTPException(status_code=400, detail="Beschrijving is te kort.")
+            raise ValidationError("Beschrijving is te kort.")
         if len(answer) > 80:
-            raise HTTPException(
-                status_code=400,
-                detail="Beschrijving mag maxiumum 80 karakters bevatten."
-            )
+            raise ValidationError("Beschrijving mag maximum 80 karakter bevatten.")
 
     elif key == "context":
         if len(answer) < 5:
-            raise HTTPException(status_code=400, detail="Context is te kort.")
+            raise ValidationError("Context is te kort.")
     elif key == "doel":
         if len(answer) < 5:
-            raise HTTPException(status_code=400, detail="Doel is te kort.")
-        
+            raise ValidationError("Doel is te kort.")
+
     return answer
 

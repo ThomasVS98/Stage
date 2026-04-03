@@ -5,13 +5,19 @@ from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.core.node_parser import SentenceSplitter
 from rag.embedding import embed_model
 from utils.logging import get_logger
+from utils.exceptions import ExternalServiceError
 
 logger = get_logger(__name__)
 
 def build_ticket_index(limit=200):
     logger.info("Topdesk tickets ophalen...")
 
-    items = fetch_topdesk_incidents(limit=limit)
+    try:
+        items = fetch_topdesk_incidents(limit=limit)
+    except ExternalServiceError:
+        logger.exception("Fout bij ophalen van Topdesk tickets")
+        raise
+
     logger.info("%s tickets opgehaald", len(items))
 
     documents = incidents_to_documents(items)

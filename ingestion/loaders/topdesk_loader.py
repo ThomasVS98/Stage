@@ -6,15 +6,14 @@ from markdownify import markdownify as md
 import html
 from ingestion.preprocessing.cleaning import clean_text, clean_topdesk_text, normalize_text
 from ingestion.loader_registry import register_loader
-from dotenv import load_dotenv
 from utils.logging import get_logger
+from config.settings import settings
 
-load_dotenv()
 logger = get_logger(__name__)
 
-TOPDESK_BASE_URL = os.getenv("TOPDESK_BASE_URL")
-TOPDESK_USER = os.getenv("TOPDESK_USER")
-TOPDESK_SECRET = os.getenv("TOPDESK_SECRET")
+TOPDESK_BASE_URL = settings.TOPDESK_BASE_URL
+TOPDESK_USER = settings.TOPDESK_USER
+TOPDESK_SECRET = settings.TOPDESK_SECRET
 
 def html_to_markdown(raw_html: str) -> str:
     if not raw_html:

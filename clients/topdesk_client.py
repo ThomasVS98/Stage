@@ -1,16 +1,15 @@
 import os
 import requests
-from dotenv import load_dotenv
 import json
 from utils.logging import get_logger
+from config.settings import settings
+from utils.exceptions import ExternalServiceError
 
-load_dotenv()
+TOPDESK_BASE_URL = settings.TOPDESK_BASE_URL
+TOPDESK_USER = settings.TOPDESK_USER
+TOPDESK_SECRET = settings.TOPDESK_SECRET
 
-TOPDESK_BASE_URL = os.getenv("TOPDESK_BASE_URL")
-TOPDESK_USER = os.getenv("TOPDESK_USER")
-TOPDESK_SECRET = os.getenv("TOPDESK_SECRET")
-
-TOPDESK_ENABLED = os.getenv("TOPDESK_ENABLED","true").lower() == "true"
+TOPDESK_ENABLED = settings.TOPDESK_ENABLED
 
 logger =  get_logger(__name__)
 
@@ -52,7 +51,7 @@ def create_incident(data:dict)->dict:
 
     if not response.ok:
         logger.error("TOPdesk error %s: %s", response.status_code, response.text)
-        raise Exception(f"TOPdesk error {response.status_code}: {response.text}")
+        raise ExternalServiceError(f"TOPdesk error {response.status_code}")
     
     result = response.json()
     logger.info("TOPdesk ticket aangemaakt= %s", result.get("number"))

@@ -1,6 +1,5 @@
 import os
 import requests
-from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 import html
 import urllib.parse
@@ -10,12 +9,12 @@ from ingestion.loader_registry import register_loader
 from llama_index.core import Document
 from ingestion.processing.file_processor import process_file, create_document_from_file
 from utils.logging import get_logger
+from config.settings import settings
 from clients.ms_graph_client import graph_get
 
-load_dotenv()
 logger = get_logger(__name__)
 
-SHAREPOINT_BASE_URL = os.getenv("SHAREPOINT_BASE_URL")
+SHAREPOINT_BASE_URL = settings.SHAREPOINT_BASE_URL
 
 def html_to_markdown(raw_html:str):
     if not raw_html:

@@ -4,7 +4,7 @@ from ingestion.ingest_tickets import build_ticket_index
 from ingestion.loader_registry import get_schema
 from rag.vector_store import reload_index
 from utils.logging import get_logger
-from fastapi import HTTPException
+from utils.exceptions import IngestionError, SourceConfigError, ExternalServiceError
 from api.models.source_model import SourceModel
 
 logger = get_logger(__name__)
@@ -20,52 +20,60 @@ def get_folder_size(path):
 def run_full_ingestion():
     logger.info("Ingestie gestart...")
 
-    process = psutil.Process(os.getpid())
-    logger.info(f"RAM start: {process.memory_info().rss / 1024**2:.2f} MB")
-
-    documents = load_all_data()
-
-    process = psutil.Process(os.getpid())
-    logger.info(f"RAM na aanmaken load generator: {process.memory_info().rss / 1024**2:.2f} MB")
-
-    doc_count = build_index(documents)
-    del documents
-    gc.collect()
-    
-    if isinstance(doc_count, int) and doc_count > 0:
-        logger.info("%s docs geindexeerd", doc_count)
+    try:
         process = psutil.Process(os.getpid())
-        logger.info(f"RAM na indexeren: {process.memory_info().rss / 1024**2:.2f} MB")
-    else:
-        logger.info("Geen docs gevonden")
+        logger.info(f"RAM start: {process.memory_info().rss / 1024**2:.2f} MB")
+
+        documents = load_all_data()
+
+        process = psutil.Process(os.getpid())
+        logger.info(f"RAM na aanmaken load generator: {process.memory_info().rss / 1024**2:.2f} MB")
+
+        doc_count = build_index(documents)
+        del documents
+        gc.collect()
         
-    logger.info("Start tickets ingestie...") 
-    process = psutil.Process(os.getpid())
-    logger.info(f"RAM voor tickets: {process.memory_info().rss / 1024**2:.2f} MB")
+        if isinstance(doc_count, int) and doc_count > 0:
+            logger.info("%s docs geindexeerd", doc_count)
+        else:
+            logger.info("Geen docs gevonden")
+            
+        logger.info("Start tickets ingestie...") 
 
-    sources = load_source_config()
-    ticket_limit = 200
+        process = psutil.Process(os.getpid())
+        logger.info(f"RAM voor tickets: {process.memory_info().rss / 1024**2:.2f} MB")
 
-    for src in sources:
-        if src.get("type") == "topdesk" and src.get("enabled"):
-            cfg = src.get("config", {})
-            ticket_limit = cfg.get("incident_limit", 200)
-            break
+        sources = load_source_config()
+        ticket_limit = 200
 
-    build_ticket_index(limit=ticket_limit)
-    process = psutil.Process(os.getpid())
-    logger.info(f"RAM na tickets: {process.memory_info().rss / 1024**2:.2f} MB")
-    logger.info("Tickets geïndexeerd.")
+        for src in sources:
+            if src.get("type") == "topdesk" and src.get("enabled"):
+                cfg = src.get("config", {})
+                ticket_limit = cfg.get("incident_limit", 200)
+                break
 
-    cleanup_temp_files()
+        build_ticket_index(limit=ticket_limit)
+        process = psutil.Process(os.getpid())
+        logger.info(f"RAM na tickets: {process.memory_info().rss / 1024**2:.2f} MB")
+        logger.info("Tickets geïndexeerd.")
 
-    reload_index("docs")  # Zorg ervoor dat de query module de nieuwe index gebruikt
-    reload_index("tickets")
+        cleanup_temp_files()
 
-    size = get_folder_size("./chroma_db")
-    logger.info(f"ChromaDB grootte: {size:.2f} MB")
+        reload_index("docs")  # Zorg ervoor dat de query module de nieuwe index gebruikt
+        reload_index("tickets")
 
-    return doc_count
+        size = get_folder_size("./chroma_db")
+        logger.info(f"ChromaDB grootte: {size:.2f} MB")
+
+        return doc_count
+    
+    except ExternalServiceError as e:
+        logger.exception("Externe service fout tijdens ingestie")
+        raise IngestionError("Externe Service fout tijdens ingestie")
+    
+    except Exception as e:
+        logger.exception("Onverwachte fout tijdens ingestie")
+        raise IngestionError("Onverwachte ingestie fout")
 
 def process_sources(sources: list[SourceModel]):
     validated_sources = []
@@ -84,18 +92,12 @@ def validate_source(source: SourceModel):
     schema = get_schema(source.type)
 
     if not schema:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Onbekend bron type: {source.type}"
-        )
+        raise SourceConfigError(f"Onbekend bron type: {source.type}")
     validated_config = {}
 
     for key in source.config.keys():
         if key not in schema:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Onbekend veld '{key}' voor type '{source.type}'"
-            )
+            raise SourceConfigError(f"Onbekende veld '{key}' in config voor type '{source.type}'")
     
     for field, rules in schema.items():
         value = source.config.get(field)
@@ -103,10 +105,7 @@ def validate_source(source: SourceModel):
         #Controleer op verplichte velden
         is_required = rules.get("required", False)
         if is_required and (value is None or (isinstance(value, str) and not value.strip())):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Veld '{field}' is verplicht voor type '{source.type}'"
-            )
+            raise SourceConfigError(f"Veld '{field}' is verplicht voor type '{source.type}'")
         
         if value is None:
             value = rules.get('default')
@@ -123,22 +122,20 @@ def validate_source(source: SourceModel):
                     elif value.lower() in ["false", "0", "no"]:
                         value = False
                     else:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Fout in veld '{field}' (type bool)"
-                        )
+                        raise SourceConfigError(f"Fout in veld '{field}' (type bool)")
                 else:
                     value = bool(value)
 
             elif field_type == "int":
                 value = int(value) if value is not None else 0
-            elif field_type == "str":
+            elif field_type in ["str", "string"]:
                 value = str(value) if value is not None else ""
 
-        except Exception:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Fout in veld '{field}' (type {field_type})"
+        except SourceConfigError:
+            raise
+        except (ValueError, TypeError):
+            raise SourceConfigError(
+                f"Fout in veld '{field}' (type {field_type})"
             )
         
         validated_config[field] = value
