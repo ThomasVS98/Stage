@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from services.orchestrator.orchestrator import answer
+from services.orchestrator import answer
 
 router = APIRouter()
 

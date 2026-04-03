@@ -1,10 +1,7 @@
 from llama_index.llms.ollama import Ollama
-from dotenv import load_dotenv
-import os
+from config.settings import settings
 
-load_dotenv()
-
-SERVER_URL = os.getenv("SERVER_URL")
+SERVER_URL = settings.API_BASE_URL
 
 llm = Ollama(
     model="llama3.2:3b", #mistral:7b

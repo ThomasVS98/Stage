@@ -19,8 +19,8 @@ async def trigger_ingest():
             }
     
     except Exception as e:
-        logger.exception("Fout tijdens ingestie: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Onverwachte fout tijdens ingestie")
+        raise HTTPException(status_code=500, detail="Interne serverfout tijdens ingestie")
     
 @router.get("/sources")
 async def get_sources():
@@ -36,9 +36,6 @@ async def update_sources(sources: list[SourceModel] = Body(...)):
             "status": "success",
             "message": "Bronconfiguratie bijgewerkt."
         }
-    except HTTPException as e:
-        raise e
-    
-    except Exception as e:
-        logger.exception("Fout bij opslaan bronnen: %s", str(e))
+    except Exception:
+        logger.exception("Onverwachte fout bij opslaan bronnen")
         raise HTTPException(status_code=500, detail="Interne serverfout")

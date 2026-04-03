@@ -1,6 +1,5 @@
 import os, psutil, shutil, gc
 import chromadb
-from dotenv import load_dotenv
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core.node_parser import SentenceSplitter
@@ -8,11 +7,11 @@ from ingestion.loader_registry import get_loader
 from rag.embedding import embed_model
 from utils.logging import get_logger, setup_logging
 from utils.config_loader import load_source_config
+from utils.exceptions import ExternalServiceError
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
 import ingestion.loaders.onedrive_loader
 
-load_dotenv()
 setup_logging()
 
 logger = get_logger(__name__)
@@ -48,6 +47,10 @@ def load_all_data():
                 yield doc
             #logger.info("Aantal docs van %s: %s", source_type, count) #len(docs))
             # all_docs.extend(docs)
+        except ExternalServiceError:
+            logger.exception("Kritische fout bij bron: %s", source_type)
+            raise
+        
         except Exception as e:
             logger.exception("Fout bij laden van %s: %s", source_type, e)
         

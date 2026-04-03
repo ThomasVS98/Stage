@@ -1,13 +1,13 @@
 import os, time, requests
-from dotenv import load_dotenv
 from utils.logging import get_logger
+from config.settings import settings
+from utils.exceptions import ExternalServiceError
 
 logger = get_logger(__name__)
-load_dotenv()
 
-CLIENT_ID = os.getenv("SHAREPOINT_CLIENT_ID")
-CLIENT_SECRET = os.getenv("SHAREPOINT_CLIENT_SECRET")
-TENANT_ID = os.getenv("SHAREPOINT_TENANT_ID")
+CLIENT_ID = settings.SHAREPOINT_CLIENT_ID
+CLIENT_SECRET = settings.SHAREPOINT_CLIENT_SECRET
+TENANT_ID = settings.SHAREPOINT_TENANT_ID
 
 _token_cache = {
     "access_token": None,
@@ -29,8 +29,12 @@ def get_graph_headers():
         "grant_type": "client_credentials"
     }
 
-    res = requests.post(token_url, data=token_data, timeout=30)
-    res.raise_for_status()
+    try:
+
+        res = requests.post(token_url, data=token_data, timeout=30)
+        res.raise_for_status()
+    except requests.RequestException as e:
+        raise ExternalServiceError(f"Graph token request misult: {e}")
 
     data = res.json()
 
@@ -38,7 +42,7 @@ def get_graph_headers():
     expires_in = data.get("expires_in", 3600)
 
     if not access_token:
-        raise Exception("Geen access token ontvangen van Microsoft Graph API")
+        raise ExternalServiceError("Geen access token ontvangen van Microsoft Graph API")
     
     _token_cache = {
         "access_token": access_token,
@@ -62,5 +66,8 @@ def graph_get(url):
 
         headers = get_graph_headers()
         res = requests.get(url, headers=headers, timeout=30)
+
+        if not res.ok:
+            raise ExternalServiceError(f"Graph API fout na token refresh: {res.status_code} - {res.text[:100]}")
 
     return res

@@ -1,20 +1,18 @@
 import os, time, requests, uuid, sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from dotenv import load_dotenv
 import streamlit as st
 from ingestion.loader_registry import get_available_loaders, get_schema
 from utils.logging import setup_logging, get_logger
+from config.settings import settings
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
 import ingestion.loaders.onedrive_loader
 
-load_dotenv()
 setup_logging()
 logger = get_logger(__name__)
 
-API_BASE_URL = os.getenv("API_BASE_URL")
+API_BASE_URL = settings.API_BASE_URL
 
 if "mode" not in st.session_state:
     st.session_state.mode = "chat"
@@ -22,8 +20,10 @@ if "intake_data" not in st.session_state:
     st.session_state.intake_data = {}
 if "answer" not in st.session_state:
     st.session_state.answer = None
-if "sources" not in st.session_state:
-    st.session_state.sources = []
+if "chat_sources" not in st.session_state:
+    st.session_state.chat_sources = []
+if "source_configs" not in st.session_state:
+    st.session_state.source_configs = []
 if "intake_session_id" not in st.session_state:
     st.session_state.intake_session_id = None
 if "current_question" not in st.session_state:
@@ -55,12 +55,12 @@ with tab_chat:
                     st.session_state.intake_session_id = intake_data["session_id"]
                     st.session_state.current_question = intake_data["question"]
                     st.session_state.answer = None
-                    st.session_state.sources = []
+                    st.session_state.chat_sources = []
                     logger.info("Intake flow gestart")
                 else:
                     st.session_state.mode = "chat"
                     st.session_state.answer = data["answer"]
-                    st.session_state.sources = data["sources"]
+                    st.session_state.chat_sources = data["sources"]
             except Exception as e:
                 st.error("Er is een fout opgetreden bij het stellen van de vraag.")
                 logger.exception("Fout bij vraag stellen: %s", e)
@@ -69,9 +69,9 @@ with tab_chat:
     if st.session_state.answer:
         st.subheader("Antwoord:")
         st.markdown(st.session_state.answer)
-        if st.session_state.sources:
+        if st.session_state.chat_sources:
             st.subheader("Bronnen:")
-            for source in st.session_state.sources:
+            for source in st.session_state.chat_sources:
                 st.write(f"- {source}")
 
     # Intake logica
@@ -143,19 +143,19 @@ with tab_admin:
         try:
             res = requests.get(f"{API_BASE_URL}/sources", timeout=10)
             res.raise_for_status()
-            st.session_state.sources = res.json()
+            st.session_state.source_configs = res.json()
         except Exception as e:
             st.error(f"Fout bij ophalen bronnen: {e}")
             logger.exception("API Error bij ophalen bronnen: %s", e)
 
-    if not st.session_state.sources:
+    if not st.session_state.source_configs:
         fetch_sources_to_state()
 
     def save_all_sources(source_list, action_name="Wijzigingen"):
         try:
             res = requests.post(f"{API_BASE_URL}/sources", json=source_list, timeout=10)
             if res.status_code == 200:
-                st.session_state.sources = source_list
+                st.session_state.source_configs = source_list
                 st.toast(f"{action_name} succesvol doorgevoerd!", icon="💾")
                 time.sleep(0.8)
                 return True
@@ -165,7 +165,8 @@ with tab_admin:
                     detail = error_data.get("detail", [])
                     if isinstance(detail, list) and len(detail) > 0:
                         err = detail[0]
-                        field = err.get("loc", [][-1])
+                        loc = err.get("loc", [])
+                        field = loc[-1] if loc else "onbekend"
                         msg = err.get("msg", "Ongeldig")
                         friendly_error = f"Veld '{field}' is verplicht of bevat een fout: {msg}"
                     else:
@@ -218,7 +219,7 @@ with tab_admin:
 
     # Bestaande bronnen aanpassen
     st.subheader("Bronnen configuratie")
-    sources = st.session_state.sources
+    sources = st.session_state.source_configs
 
     for src in sources:
         if "id" not in src:
@@ -315,7 +316,6 @@ with tab_admin:
             })
 
             if st.button(f"❌ Verwijder bron {i+1}", key=f"delete_{uid}"):
-                st.write("DELETE CLICKED", uid)
                 new_sources = [s for s in sources if s["id"] != uid]
 
                 if save_all_sources(new_sources, action_name="Verwijdering"):

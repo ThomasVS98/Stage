@@ -1,24 +1,24 @@
 [
   {
-    "id": "9d2a34da-4717-41e9-b515-1ea406d258e0",
+    "id": "8e3d0909-7bfe-4b45-94a9-85cf5d598c09",
     "type": "sharepoint",
     "enabled": false,
     "config": {
-      "site_id": "stagetm.sharepoint.com,c75f80ab-6ebc-4c23-b866-b7f97e424a1b,8dadf00b-9510-49da-ab4a-1f2ef1377b53",
+      "site_id": "LMS_SITE_ID",
       "label": "LMS Site"
     }
   },
   {
-    "id": "e9281a46-475a-4e32-a23e-7ab7ec6c1934",
+    "id": "934586c9-f1f7-42b3-8345-bdc17b91989e",
     "type": "sharepoint",
-    "enabled": false,
+    "enabled": true,
     "config": {
-      "site_id": "stagetm.sharepoint.com,8d849f45-945f-4f31-932c-66d554b0f75f,8dadf00b-9510-49da-ab4a-1f2ef1377b53",
+      "site_id": "SERVICE_CATALOG_ID",
       "label": "IT Service Catalog"
     }
   },
   {
-    "id": "3f8a05fd-4d34-4194-87c3-1b1fc7f5b5f0",
+    "id": "2586992c-74bc-4cc9-80c8-f9ead403a894",
     "type": "topdesk",
     "enabled": true,
     "config": {
