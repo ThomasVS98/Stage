@@ -1,7 +1,7 @@
 import os, requests
 from ingestion.loader_registry import register_loader
 from dotenv import load_dotenv
-from clients.ms_graph_client import get_graph_headers
+from clients.ms_graph_client import graph_get
 from ingestion.processing.file_processor import process_file, create_document_from_file
 from utils.logging import get_logger
 
@@ -9,13 +9,11 @@ load_dotenv()
 logger = get_logger(__name__)
 
 def fetch_onedrive_files(user_id: str):
-    headers = get_graph_headers()
     url = f"https://graph.microsoft.com/v1.0/users/{user_id}/drive/root/children"
-    res = requests.get(url, headers=headers)
+    res = graph_get(url)
 
     if res.status_code != 200:
-        logger.warning("Fout bij ophalen OneDrive bestanden: %s", res.status_code)
-        logger.warning(res.text)
+        logger.warning("Fout bij ophalen OneDrive bestanden: %s | %s", res.status_code, res.text[:300])
         return []
     
     items = res.json().get("value", [])
@@ -71,7 +69,7 @@ def load_onedrive_source(config:dict):
         logger.info("Bestand downloaden: %s", filename)
 
         try:
-            res = requests.get(download_url)
+            res = requests.get(download_url, timeout=30)
             if res.status_code != 200:
                 logger.warning("Download mislukt: %s", filename)
                 continue
@@ -83,6 +81,12 @@ def load_onedrive_source(config:dict):
             continue
 
         content = process_file(file_path, filename)
+
+        try:
+            os.remove(file_path)
+            logger.info("Tijdelijk bestand verwijderd: %s", filename)
+        except Exception as e:
+            logger.warning("Kon tijdelijk bestand niet verwijderen: %s", e)
 
         if not content.strip():
             logger.warning("Lege content voor %s", filename)

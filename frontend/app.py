@@ -1,5 +1,7 @@
-import os
-import requests
+import os, time, requests, uuid, sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from dotenv import load_dotenv
 import streamlit as st
 from ingestion.loader_registry import get_available_loaders, get_schema
@@ -134,12 +136,55 @@ with tab_chat:
                         st.session_state.current_question = data["question"]
                         st.rerun()
 
-# Admin functies
+# Tab 2: Admin functies
 with tab_admin:
-    @st.cache_data
-    def get_sources():
-        res = requests.get(f"{API_BASE_URL}/sources")
-        return res.json()
+    def fetch_sources_to_state():
+        """Haalt bronnen op van API en zet ze in de session state."""
+        try:
+            res = requests.get(f"{API_BASE_URL}/sources", timeout=10)
+            res.raise_for_status()
+            st.session_state.sources = res.json()
+        except Exception as e:
+            st.error(f"Fout bij ophalen bronnen: {e}")
+            logger.exception("API Error bij ophalen bronnen: %s", e)
+
+    if not st.session_state.sources:
+        fetch_sources_to_state()
+
+    def save_all_sources(source_list, action_name="Wijzigingen"):
+        try:
+            res = requests.post(f"{API_BASE_URL}/sources", json=source_list, timeout=10)
+            if res.status_code == 200:
+                st.session_state.sources = source_list
+                st.toast(f"{action_name} succesvol doorgevoerd!", icon="💾")
+                time.sleep(0.8)
+                return True
+            else:
+                try:
+                    error_data = res.json()
+                    detail = error_data.get("detail", [])
+                    if isinstance(detail, list) and len(detail) > 0:
+                        err = detail[0]
+                        field = err.get("loc", [][-1])
+                        msg = err.get("msg", "Ongeldig")
+                        friendly_error = f"Veld '{field}' is verplicht of bevat een fout: {msg}"
+                    else:
+                        friendly_error = error_data.get("detail", res.text)
+                except:
+                    friendly_error = res.text
+
+                st.error(f"Fout bij opslaan bronnen: {friendly_error}")
+                return False
+            
+        except Exception as e:
+            st.error(f"Verbindingsfout: {e}")
+            logger.exception("Opslaan mislukt")
+            return False
+
+    # @st.cache_data
+    # def get_sources():
+    #     res = requests.get(f"{API_BASE_URL}/sources")
+    #     return res.json()
 
     @st.cache_data
     def get_loader_types():
@@ -173,15 +218,15 @@ with tab_admin:
 
     # Bestaande bronnen aanpassen
     st.subheader("Bronnen configuratie")
-    try:
-        sources = get_sources()
-    except Exception as e:
-        st.error("Fout bij laden van bronnen")
-        logger.exception("Bronnen ophalen mislukt: %s", e)
-        sources = []
+    sources = st.session_state.sources
+
+    for src in sources:
+        if "id" not in src:
+            src["id"] = str(uuid.uuid4())
 
     updated_sources = []
     for i, src in enumerate(sources):
+        uid = src["id"]
         with st.expander(f"Bron {i+1}: {src.get('type','nieuw')}"):
             available_types = get_loader_types()
 
@@ -192,10 +237,10 @@ with tab_admin:
                 "Type",
                 options=available_types,
                 index=available_types.index(src["type"]) if src["type"] in available_types else 0,
-                key=f"type_{i}"
+                key=f"type_{uid}"
             )
 
-            type_key = f"type_state_{i}"
+            type_key = f"type_state_{uid}"
 
             if type_key not in st.session_state:
                 st.session_state[type_key] = source_type
@@ -207,7 +252,7 @@ with tab_admin:
                 config = {}
 
                 for k in list(st.session_state.keys()):
-                    if k.endswith(f"_{i}") and not k.startswith("type_state"):
+                    if k.endswith(f"_{uid}") and not k.startswith("type_state"):
                         del st.session_state[k]
             else:
                 config = src.get("config", {})
@@ -215,7 +260,7 @@ with tab_admin:
             enabled = st.checkbox(
                 "Enabled",
                 value=src.get("enabled",True),
-                key=f"enabled_{i}"
+                key=f"enabled_{uid}"
             )
 
             schema = get_schema(source_type)
@@ -224,7 +269,7 @@ with tab_admin:
 
             for field, rules in schema.items():
                 field_type = rules.get("type")
-                key = f"{field}_{i}"
+                key = f"{field}_{uid}"
 
                 default = config.get(field)
                 if default is None:
@@ -263,54 +308,30 @@ with tab_admin:
 
 
             updated_sources.append({
+                "id": uid,
                 "type": source_type,
                 "enabled":enabled,
                 "config": new_config
             })
 
-            if st.button(f"❌ Verwijder bron {i+1}", key=f"delete_{i}"):
+            if st.button(f"❌ Verwijder bron {i+1}", key=f"delete_{uid}"):
+                st.write("DELETE CLICKED", uid)
+                new_sources = [s for s in sources if s["id"] != uid]
+
+                if save_all_sources(new_sources, action_name="Verwijdering"):
+                    st.rerun()
+
+            if st.button(f"💾 Opslaan bron {i+1}", key=f"save_{uid}"):
                 new_sources = sources.copy()
-                new_sources.pop(i)
-
-                try:
-                    requests.post(f"{API_BASE_URL}/sources", json=new_sources)
-                    st.success("Bron verwijderd")
-                    get_sources.clear()
-                except Exception as e:
-                    st.error("Fout bij verwijderen")
-                    logger.exception("Delete mislukt: %s", e)
-                
-                st.rerun()
-
-            if st.button(f"💾 Opslaan bron {i+1}", key=f"save_{i}"):
-                latest_sources = get_sources()
-                new_sources = latest_sources.copy()
                 new_sources[i] = {
+                    "id": uid,
                     "type": source_type,
                     "enabled": enabled,
                     "config": new_config
                 }
 
-                st.write("DEBUG - new_config:", new_config)
-                st.write("DEBUG - new_sources[i]:", new_sources[i])
-
-                try:
-                    res = requests.post(
-                        f"{API_BASE_URL}/sources",
-                        json=new_sources
-                    )
-
-                    if res.status_code == 200:
-                        st.success("Bron opgeslagen")
-                        get_sources.clear()
-                    else:
-                        error = res.json().get("detail", "Onbekende fout")
-                        st.error(error)
-                except Exception as e:
-                    st.error("Fout bij opslaan")
-                    logger.exception("Opslaan mislukt: %s", e)
-
-                st.rerun()
+                if save_all_sources(new_sources, action_name="Wijziging"):
+                    st.rerun()
 
 
     st.divider()
@@ -366,26 +387,10 @@ with tab_admin:
                 "config": new_config
             }
 
-            try:
-                res = requests.post(
-                    f"{API_BASE_URL}/sources",
-                    json=sources + [new_source]
-                )
-
-                if res.status_code == 200:
-                    st.success("Bron toegevoegd")
-                    get_sources.clear()
-                    st.session_state.adding_source = False
-                    st.rerun()
-                else:
-                    error = (res.json().get("detail", "Fout"))
-                    st.error(error)
-            except Exception as e:
-                st.error("Fout bij toevoegen")
-                logger.exception("Toevoegen mislukt: %s", e)
-
+            if save_all_sources(sources + [new_source], action_name="Toevoeging"):
+                st.session_state.adding_source = False
+                st.rerun()
 
         if st.button("Annuleren"):
             st.session_state.adding_source = False
             st.rerun()
-

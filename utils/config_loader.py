@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -16,8 +17,17 @@ def load_source_config():
     
     resolved = []
 
+    changed = False
+
     for source in raw:
         new_source = source.copy()
+        if "id" not in new_source:
+            new_source = {
+                "id": str(uuid.uuid4()),
+                **new_source
+            }
+            changed = True
+
         config = new_source.get("config", {}).copy()
         for key, value in config.items():
             if isinstance(value, str) and value.endswith("_ID"):
@@ -27,6 +37,10 @@ def load_source_config():
                 config[key] = env_val
         new_source["config"] = config
         resolved.append(new_source)
+
+    if changed:
+        save_source_config(resolved)
+
     return resolved
 
 def save_source_config(sources: list):

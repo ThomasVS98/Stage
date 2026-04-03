@@ -1,8 +1,11 @@
-import os, psutil, gc
+import os, psutil, gc, uuid
 from ingestion.ingest_pipeline import load_all_data, build_index, load_source_config, cleanup_temp_files
 from ingestion.ingest_tickets import build_ticket_index
+from ingestion.loader_registry import get_schema
 from rag.vector_store import reload_index
 from utils.logging import get_logger
+from fastapi import HTTPException
+from api.models.source_model import SourceModel
 
 logger = get_logger(__name__)
 
@@ -63,3 +66,86 @@ def run_full_ingestion():
     logger.info(f"ChromaDB grootte: {size:.2f} MB")
 
     return doc_count
+
+def process_sources(sources: list[SourceModel]):
+    validated_sources = []
+
+    for src in sources:
+        validated = validate_source(src)
+
+        if not validated.get("id"):
+            validated["id"] = str(uuid.uuid4())
+            
+        validated_sources.append(validated)
+    
+    return validated_sources
+
+def validate_source(source: SourceModel):
+    schema = get_schema(source.type)
+
+    if not schema:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Onbekend bron type: {source.type}"
+        )
+    validated_config = {}
+
+    for key in source.config.keys():
+        if key not in schema:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Onbekend veld '{key}' voor type '{source.type}'"
+            )
+    
+    for field, rules in schema.items():
+        value = source.config.get(field)
+
+        #Controleer op verplichte velden
+        is_required = rules.get("required", False)
+        if is_required and (value is None or (isinstance(value, str) and not value.strip())):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Veld '{field}' is verplicht voor type '{source.type}'"
+            )
+        
+        if value is None:
+            value = rules.get('default')
+        
+        field_type = rules.get("type")
+
+        try:
+            if field_type == "bool":
+                if isinstance(value, bool):
+                    pass
+                elif isinstance(value, str):
+                    if value.lower() in ["true", "1", "yes"]:
+                        value = True
+                    elif value.lower() in ["false", "0", "no"]:
+                        value = False
+                    else:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Fout in veld '{field}' (type bool)"
+                        )
+                else:
+                    value = bool(value)
+
+            elif field_type == "int":
+                value = int(value) if value is not None else 0
+            elif field_type == "str":
+                value = str(value) if value is not None else ""
+
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Fout in veld '{field}' (type {field_type})"
+            )
+        
+        validated_config[field] = value
+
+    return {
+        "id": source.id,
+        "type": source.type,
+        "enabled": source.enabled,
+        "config": validated_config
+    }
