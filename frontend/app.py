@@ -12,8 +12,6 @@ import ingestion.loaders.onedrive_loader
 setup_logging()
 logger = get_logger(__name__)
 
-API_BASE_URL = settings.API_BASE_URL
-
 if "mode" not in st.session_state:
     st.session_state.mode = "chat"
 if "intake_data" not in st.session_state:
@@ -45,11 +43,11 @@ with tab_chat:
         logger.info("Vraag ontvangen in Streamlit")
         with st.spinner("Bezig met het beantwoorden van de vraag..."):
             try:
-                response = requests.post(f'{API_BASE_URL}/ask', json={"question": question})
+                response = requests.post(f'{settings.API_BASE_URL}/ask', json={"question": question})
                 data = response.json()
 
                 if data.get("action") == "INTAKE":
-                    res = requests.post(f"{API_BASE_URL}/intake/start",json={"original_question": question})
+                    res = requests.post(f"{settings.API_BASE_URL}/intake/start",json={"original_question": question})
                     intake_data = res.json()
                     st.session_state.mode = "intake"
                     st.session_state.intake_session_id = intake_data["session_id"]
@@ -93,7 +91,7 @@ with tab_chat:
                 st.warning("Gelieve een antwoord in te vullen.")
             else:
                 res = requests.post(
-                    f"{API_BASE_URL}/intake/answer",
+                    f"{settings.API_BASE_URL}/intake/answer",
                     json={"session_id": st.session_state.intake_session_id, "answer": answer}
                 )
                 if res.status_code != 200:
@@ -141,7 +139,7 @@ with tab_admin:
     def fetch_sources_to_state():
         """Haalt bronnen op van API en zet ze in de session state."""
         try:
-            res = requests.get(f"{API_BASE_URL}/sources", timeout=10)
+            res = requests.get(f"{settings.API_BASE_URL}/sources", timeout=10)
             res.raise_for_status()
             st.session_state.source_configs = res.json()
         except Exception as e:
@@ -153,7 +151,7 @@ with tab_admin:
 
     def save_all_sources(source_list, action_name="Wijzigingen"):
         try:
-            res = requests.post(f"{API_BASE_URL}/sources", json=source_list, timeout=10)
+            res = requests.post(f"{settings.API_BASE_URL}/sources", json=source_list, timeout=10)
             if res.status_code == 200:
                 st.session_state.source_configs = source_list
                 st.toast(f"{action_name} succesvol doorgevoerd!", icon="💾")
@@ -199,7 +197,7 @@ with tab_admin:
         logger.info("Database synchronisatie gestart door gebruiker")
         with st.spinner("Bezig met ophalen van data... dit kan enkele minuten duren."):
             try:
-                res = requests.post(f"{API_BASE_URL}/ingest", timeout=600) 
+                res = requests.post(f"{settings.API_BASE_URL}/ingest", timeout=600)
                 if res.status_code == 200:
                     status_msg = res.json().get('message', 'Database succesvol bijgewerkt!')
                     st.success(f"✅ {status_msg}")

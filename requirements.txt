@@ -13,3 +13,4 @@ beautifulsoup4
 markdownify
 docling
 pypdfium2
+pydantic-settings

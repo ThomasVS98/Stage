@@ -1,13 +1,42 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from api.routes.intake_routes import router as intake_router
 from api.routes.rag_routes import router as rag_router
 from api.routes.admin_routes import router as admin_router
 from utils.logging import setup_logging
+from utils.exceptions import AppValidationError, SourceConfigError, ExternalServiceError, IngestionError
 
 setup_logging()
 
 app = FastAPI()
 
+@app.exception_handler(AppValidationError)
+async def validation_exception_handler(request: Request, exc: AppValidationError):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": f"Validatiefout: {str(exc)}"}
+    )
+
+@app.exception_handler(SourceConfigError)
+async def source_config_exception_handler(request: Request, exc: SourceConfigError):
+    return JSONResponse(
+        status_code=400,
+        content={"detail": f"Bron fout: {str(exc)}"}
+    )
+
+@app.exception_handler(ExternalServiceError)
+async def external_service_exception_handler(request: Request, exc: ExternalServiceError):
+    return JSONResponse(
+        status_code=502,
+        content={"detail": f"Fout bij externe dienst: {str(exc)}"}
+    )
+
+@app.exception_handler(IngestionError)
+async def ingestion_exception_handler(request: Request, exc: IngestionError):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Ingestie fout: {str(exc)}"}
+    )
 
 app.include_router(intake_router)
 app.include_router(rag_router)

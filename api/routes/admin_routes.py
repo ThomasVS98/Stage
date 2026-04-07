@@ -9,33 +9,24 @@ logger = get_logger(__name__)
 
 @router.post("/ingest")
 async def trigger_ingest():
-    try:
-        logger.info("Ingestie verzoek ontvangen via API")
+    logger.info("Ingestie verzoek ontvangen via API")
 
-        doc_count = run_full_ingestion()
-        return {
-            "status": "success", 
-            "message": f"Succes! {doc_count} documenten geïndexeerd en tickets geïndexeerd."
-            }
-    
-    except Exception as e:
-        logger.exception("Onverwachte fout tijdens ingestie")
-        raise HTTPException(status_code=500, detail="Interne serverfout tijdens ingestie")
+    doc_count = run_full_ingestion()
+    return {
+        "status": "success", 
+        "message": f"Succes! {doc_count} documenten geïndexeerd en tickets geïndexeerd."
+        }
     
 @router.get("/sources")
 async def get_sources():
-    return load_source_config()
+    return load_source_config(resolve=False)
 
 @router.post("/sources")
 async def update_sources(sources: list[SourceModel] = Body(...)):
-    try:
-        validated_sources = process_sources(sources)
-        save_source_config(validated_sources)
+    validated_sources = process_sources(sources)
+    save_source_config(validated_sources)
 
-        return {
-            "status": "success",
-            "message": "Bronconfiguratie bijgewerkt."
-        }
-    except Exception:
-        logger.exception("Onverwachte fout bij opslaan bronnen")
-        raise HTTPException(status_code=500, detail="Interne serverfout")
+    return {
+        "status": "success",
+        "message": "Bronconfiguratie bijgewerkt."
+    }

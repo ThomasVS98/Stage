@@ -5,12 +5,6 @@ from utils.logging import get_logger
 from config.settings import settings
 from utils.exceptions import ExternalServiceError
 
-TOPDESK_BASE_URL = settings.TOPDESK_BASE_URL
-TOPDESK_USER = settings.TOPDESK_USER
-TOPDESK_SECRET = settings.TOPDESK_SECRET
-
-TOPDESK_ENABLED = settings.TOPDESK_ENABLED
-
 logger =  get_logger(__name__)
 
 def build_incident_payload(data:dict)->dict:
@@ -28,7 +22,7 @@ Doel: {data.get("doel")}
 
 def create_incident(data:dict)->dict:
     # voor testing soms even topdesk kunnen uitzetten voor ticketing
-    if not TOPDESK_ENABLED:
+    if not settings.TOPDESK_ENABLED:
         logger.warning("TOPdesk uitgeschakeld: mock ticket wordt opgeslagen")
         with open('mock_tickets.jsonl',"a",encoding="utf-8") as f:
             f.write(json.dumps(data,ensure_ascii=False)+"\n")
@@ -38,13 +32,17 @@ def create_incident(data:dict)->dict:
             "id": "mock_id"
         }
     
-    url = f"{TOPDESK_BASE_URL}/tas/api/incidents"
+    if not all([settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]):
+        logger.error("TOPdesk configuratie onvolledig, controleer env vars")
+        raise ExternalServiceError("TOPdesk configuratie onvolledig")
+    
+    url = f"{settings.TOPDESK_BASE_URL}/tas/api/incidents"
     payload = build_incident_payload(data)
 
     response = requests.post(
         url,
         json=payload,
-        auth=(TOPDESK_USER,TOPDESK_SECRET),
+        auth=(settings.TOPDESK_USER, settings.TOPDESK_SECRET),
         headers={"Content-Type": "application/json"},
         timeout = 30
     )

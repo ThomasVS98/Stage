@@ -14,8 +14,6 @@ from clients.ms_graph_client import graph_get
 
 logger = get_logger(__name__)
 
-SHAREPOINT_BASE_URL = settings.SHAREPOINT_BASE_URL
-
 def html_to_markdown(raw_html:str):
     if not raw_html:
         return "", []
@@ -28,8 +26,8 @@ def html_to_markdown(raw_html:str):
 
     for a in soup.find_all("a",href=True):
         href = urllib.parse.unquote(a["href"])
-        if href.startswith("/"):
-            href = f"{SHAREPOINT_BASE_URL}{href}"
+        if href.startswith("/") and settings.SHAREPOINT_BASE_URL:
+            href = f"{settings.SHAREPOINT_BASE_URL}{href}"
         if not href.startswith("javascript:"):
             related_links.append({
                 "title": a.get_text(strip=True),
