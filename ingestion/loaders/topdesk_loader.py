@@ -11,10 +11,6 @@ from config.settings import settings
 
 logger = get_logger(__name__)
 
-TOPDESK_BASE_URL = settings.TOPDESK_BASE_URL
-TOPDESK_USER = settings.TOPDESK_USER
-TOPDESK_SECRET = settings.TOPDESK_SECRET
-
 def html_to_markdown(raw_html: str) -> str:
     if not raw_html:
         return ""
@@ -32,7 +28,11 @@ def has_usable_content(item:dict)->bool:
     return bool(body)
 
 def fetch_topdesk_knowledge_items():
-    url = f"{TOPDESK_BASE_URL}/services/knowledge-base-v1/knowledgeItems"
+    if not all([settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]):
+        logger.error("TOPdesk loader configuratie ontbreekt!")
+        return []
+
+    url = f"{settings.TOPDESK_BASE_URL}/services/knowledge-base-v1/knowledgeItems"
     params = {
         "start": 0,
         "page_size": 100,
@@ -45,7 +45,7 @@ def fetch_topdesk_knowledge_items():
     while url:
         r = requests.get(
             url,
-            auth=(TOPDESK_USER,TOPDESK_SECRET),
+            auth=(settings.TOPDESK_USER, settings.TOPDESK_SECRET),
             params=params if "?" not in url else None,
             headers={"Accept": "application/json"},
             timeout=30
@@ -109,7 +109,11 @@ def fetch_topdesk_documents():
     return topdesk_items_to_documents(items)
 
 def fetch_topdesk_incidents(limit=300):
-    url = f"{TOPDESK_BASE_URL}/tas/api/incidents"
+    if not settings.TOPDESK_BASE_URL:
+        logger.error("TOPdesk loader configuratie ontbreekt!")
+        return []
+    
+    url = f"{settings.TOPDESK_BASE_URL}/tas/api/incidents"
 
     params = {
         "page_size":50,
@@ -120,7 +124,7 @@ def fetch_topdesk_incidents(limit=300):
     while url and len(all_items) < limit:
         r = requests.get(
             url,
-            auth=(TOPDESK_USER,TOPDESK_SECRET),
+            auth=(settings.TOPDESK_USER, settings.TOPDESK_SECRET),
             params=params if "?" not in url else None,
             headers={"Accept": "application/json"},
             timeout=30

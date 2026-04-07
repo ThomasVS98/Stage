@@ -5,10 +5,6 @@ from utils.exceptions import ExternalServiceError
 
 logger = get_logger(__name__)
 
-CLIENT_ID = settings.SHAREPOINT_CLIENT_ID
-CLIENT_SECRET = settings.SHAREPOINT_CLIENT_SECRET
-TENANT_ID = settings.SHAREPOINT_TENANT_ID
-
 _token_cache = {
     "access_token": None,
     "expires_at": 0
@@ -19,12 +15,16 @@ def get_graph_headers():
 
     if _token_cache["access_token"] and time.time() < _token_cache["expires_at"] - 60:
         return {"Authorization": f"Bearer {_token_cache['access_token']}"}
+    
+    if not all([settings.SHAREPOINT_CLIENT_ID, settings.SHAREPOINT_CLIENT_SECRET, settings.SHAREPOINT_TENANT_ID]):
+        logger.error("Microsoft Graph configuratie onvolledig, controleer env vars")
+        raise ExternalServiceError("Microsoft Graph configuratie onvolledig")
 
-    token_url = f"https://login.microsoftonline.com/{TENANT_ID}/oauth2/v2.0/token"
+    token_url = f"https://login.microsoftonline.com/{settings.SHAREPOINT_TENANT_ID}/oauth2/v2.0/token"
 
     token_data = {
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET,
+        "client_id": settings.SHAREPOINT_CLIENT_ID,
+        "client_secret": settings.SHAREPOINT_CLIENT_SECRET,
         "scope": "https://graph.microsoft.com/.default",
         "grant_type": "client_credentials"
     }
@@ -34,7 +34,7 @@ def get_graph_headers():
         res = requests.post(token_url, data=token_data, timeout=30)
         res.raise_for_status()
     except requests.RequestException as e:
-        raise ExternalServiceError(f"Graph token request misult: {e}")
+        raise ExternalServiceError(f"Graph token request mislukt: {e}")
 
     data = res.json()
 

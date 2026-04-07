@@ -14,7 +14,7 @@ def resolve_env(config: dict) -> dict:
     for key, value in config.items():
             if isinstance(value, str) and value.endswith("_ID"):
                 env_val = getattr(settings, value, None)
-                if not env_val:
+                if env_val is None:
                     logger.warning("ENV var niet gevonden: %s", value)
                     resolved[key] = value
                 else:
@@ -24,7 +24,7 @@ def resolve_env(config: dict) -> dict:
 
     return resolved
 
-def load_source_config():
+def load_source_config(resolve: bool = True):
     try:
         with open(CONFIG_PATH, "r") as f:
             raw = json.load(f)
@@ -37,26 +37,23 @@ def load_source_config():
     changed = False
 
     for source in raw:
-        raw_source = source.copy()
-        resolved_source = source.copy()
-        if "id" not in raw_source:
+        source_entry = source.copy()
+        if "id" not in source_entry:
             new_id = str(uuid.uuid4())
-            raw_source["id"] = new_id
-            resolved_source["id"] = new_id
+            source_entry["id"] = new_id
             changed = True
 
-        config = raw_source.get("config", {}).copy()
-        resolved_config = resolve_env(config)
+        updated_raw.append(source_entry)
 
-        resolved_source["config"] = resolved_config
-
-        updated_raw.append(raw_source)
-        resolved.append(resolved_source)
+        if resolve:
+            resolved_source = source_entry.copy()
+            resolved_source["config"] = resolve_env(source_entry.get("config", {})).copy()
+            resolved.append(resolved_source)
 
     if changed:
         save_source_config(updated_raw)
 
-    return resolved
+    return resolved if resolve else updated_raw
 
 def save_source_config(sources: list):
     try:

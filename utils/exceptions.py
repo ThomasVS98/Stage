@@ -11,5 +11,5 @@ class SourceConfigError(AppError):
 class ExternalServiceError(AppError):
     pass
 
-class ValidationError(AppError):
+class AppValidationError(AppError):
     pass

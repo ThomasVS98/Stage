@@ -1,4 +1,4 @@
-from utils.exceptions import ValidationError, ExternalServiceError
+from utils.exceptions import AppValidationError, ExternalServiceError
 from services.intake.intake_state import INTAKE_QUESTIONS
 from services.intake.validation import validate_answer, is_relevant
 from clients.topdesk_client import create_incident
@@ -25,11 +25,11 @@ def answer(payload:dict):
     answer = payload.get("answer")
 
     if not session_id or not answer:
-        raise ValidationError("Missing session_id or answer")
+        raise AppValidationError("Missing session_id or answer")
     session = session_store.get(session_id)
 
     if not session:
-        raise ValidationError("Invalid session")
+        raise AppValidationError("Invalid session")
     step = session["step"]
     key, _ = INTAKE_QUESTIONS[step]
 

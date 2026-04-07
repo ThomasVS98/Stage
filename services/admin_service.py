@@ -69,11 +69,11 @@ def run_full_ingestion():
     
     except ExternalServiceError as e:
         logger.exception("Externe service fout tijdens ingestie")
-        raise IngestionError("Externe Service fout tijdens ingestie")
+        raise IngestionError(f"Externe Service fout tijdens ingestie: {str(e)}") from e
     
     except Exception as e:
         logger.exception("Onverwachte fout tijdens ingestie")
-        raise IngestionError("Onverwachte ingestie fout")
+        raise IngestionError(f"Onverwachte ingestie fout: {str(e)}") from e
 
 def process_sources(sources: list[SourceModel]):
     validated_sources = []
@@ -97,7 +97,7 @@ def validate_source(source: SourceModel):
 
     for key in source.config.keys():
         if key not in schema:
-            raise SourceConfigError(f"Onbekende veld '{key}' in config voor type '{source.type}'")
+            raise SourceConfigError(f"Onbekend veld '{key}' in config voor type '{source.type}'")
     
     for field, rules in schema.items():
         value = source.config.get(field)

@@ -1,5 +1,5 @@
 import re
-from utils.exceptions import ValidationError
+from utils.exceptions import AppValidationError
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -29,19 +29,19 @@ def validate_answer(key: str, answer: str)->str:
     answer = re.sub(r"<.*?>","",answer)
 
     if not answer:
-        raise ValidationError("Antwoord mag niet leeg zijn.")
+        raise AppValidationError("Antwoord mag niet leeg zijn.")
     if key == "beschrijving":
         if len(answer) < 5:
-            raise ValidationError("Beschrijving is te kort.")
+            raise AppValidationError("Beschrijving is te kort.")
         if len(answer) > 80:
-            raise ValidationError("Beschrijving mag maximum 80 karakter bevatten.")
+            raise AppValidationError("Beschrijving mag maximum 80 karakters bevatten.")
 
     elif key == "context":
         if len(answer) < 5:
-            raise ValidationError("Context is te kort.")
+            raise AppValidationError("Context is te kort.")
     elif key == "doel":
         if len(answer) < 5:
-            raise ValidationError("Doel is te kort.")
+            raise AppValidationError("Doel is te kort.")
 
     return answer
 
