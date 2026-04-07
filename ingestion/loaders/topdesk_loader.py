@@ -109,7 +109,7 @@ def fetch_topdesk_documents():
     return topdesk_items_to_documents(items)
 
 def fetch_topdesk_incidents(limit=300):
-    if not settings.TOPDESK_BASE_URL:
+    if not all([settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]):
         logger.error("TOPdesk loader configuratie ontbreekt!")
         return []
     
