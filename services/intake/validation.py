@@ -24,9 +24,14 @@ def is_relevant(original_question:str, intake_data:dict, threshold: float = 0.5)
     return score >= threshold
 
 def validate_answer(key: str, answer: str)->str:
+    if not isinstance(answer, str):
+        raise AppValidationError("Antwoord moet tekst zijn.")
+    
     answer = answer.strip()
 
     answer = re.sub(r"<.*?>","",answer)
+
+    answer = answer.strip()
 
     if not answer:
         raise AppValidationError("Antwoord mag niet leeg zijn.")
