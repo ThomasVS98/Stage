@@ -1,6 +1,5 @@
 import chromadb
 from llama_index.core import VectorStoreIndex
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.logging import get_logger
 from rag.embedding import get_embed_model
