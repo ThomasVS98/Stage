@@ -7,19 +7,30 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-mpnet-base-v2")
+_model = None
 
+def get_model():
+    global _model
+    if _model is None:
+        _model = SentenceTransformer(
+            "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+        )
+    return _model
+        
 def is_relevant(original_question:str, intake_data:dict, threshold: float = 0.5):
     combined = f"""
-    Probleem: {intake_data.get("beschrijving")}
-    Context: {intake_data.get("context")}
-    Doel: {intake_data.get("doel")}
+    Probleem: {intake_data.get("beschrijving") or ""}
+    Context: {intake_data.get("context") or ""}
+    Doel: {intake_data.get("doel") or ""}
     """
+
+    model = get_model()
+
     emb1 = model.encode([original_question])
     emb2 = model.encode([combined])
 
     score = cosine_similarity(emb1, emb2)[0][0]
-    logger.info("similarity met orignele vraag: %.3f", score)
+    logger.info("similarity met originele vraag: %.3f", score)
 
     return score >= threshold
 

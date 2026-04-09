@@ -3,7 +3,7 @@ from ingestion.loaders.topdesk_loader import fetch_topdesk_incidents, incidents_
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.core.node_parser import SentenceSplitter
-from rag.embedding import embed_model
+from rag.embedding import get_embed_model
 from utils.logging import get_logger
 from utils.exceptions import ExternalServiceError
 
@@ -44,7 +44,7 @@ def build_ticket_index(limit=200):
     index = VectorStoreIndex.from_documents(
         documents,
         storage_context=storage_context,
-        embed_model=embed_model,
+        embed_model=get_embed_model(),
         transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
         show_progress=True
     )

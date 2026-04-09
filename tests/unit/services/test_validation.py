@@ -1,7 +1,7 @@
 import pytest
 from services.intake.validation import validate_answer, is_relevant
 from utils.exceptions import AppValidationError
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 #Tests voor validate_answer
 def test_validate_beschrijving_te_kort():
@@ -65,22 +65,36 @@ def test_validate_integer_input():
         validate_answer("beschrijving", 123)
 
 # Tests voor is_relevant (met mocking van embedding model)
-@patch('services.intake.validation.model.encode')
+@patch('services.intake.validation.get_model')
 @patch('services.intake.validation.cosine_similarity')
-def test_is_relevant_true(mock_cosine, mock_encode):
+def test_is_relevant_true(mock_cosine, mock_get_model):
+    mock_model = MagicMock()
+    mock_model.encode.return_value = [[0.1]]
+    mock_get_model.return_value = mock_model
+
     mock_cosine.return_value = [[0.8]]
+
 
     data = {
         "beschrijving": "Laptop stuk",
         "context": "Op kantoor",
         "doel": "Reparatie"
     }
-    assert is_relevant("Mijn laptop is kapot", data, threshold=0.5) is True
 
-@patch('services.intake.validation.model.encode')
+    result = is_relevant("Mijn laptop is kapot", data, threshold=0.5)
+
+    assert result is True
+    assert mock_model.encode.call_count == 2
+    mock_cosine.assert_called_once()
+
+@patch('services.intake.validation.get_model')
 @patch('services.intake.validation.cosine_similarity')
-def test_is_relevant_false(mock_cosine, mock_encode):
-    mock_cosine.return_value = [[0.3]]
+def test_is_relevant_false(mock_cosine, mock_get_model):
+    mock_model = MagicMock()
+    mock_model.encode.return_value = [[0.1]]
+    mock_get_model.return_value = mock_model
+
+    mock_cosine.return_value = [[0.2]]
 
     data = {
         "beschrijving": "Laptop stuk",
@@ -89,15 +103,20 @@ def test_is_relevant_false(mock_cosine, mock_encode):
     }
     assert is_relevant("Is het goed weer vandaag?", data, threshold=0.5) is False
 
-@patch('services.intake.validation.model.encode')
+@patch('services.intake.validation.get_model')
 @patch('services.intake.validation.cosine_similarity')
-def test_is_relevant_calls_encode_correctly(mock_cosine, mock_encode):
+def test_is_relevant_calls_encode_correctly(mock_cosine, mock_get_model):
+    mock_model = MagicMock()
+    mock_model.encode.return_value = [[0.1]]
+    mock_get_model.return_value = mock_model
+
     mock_cosine.return_value = [[1.0]]
+
     data = {"beschrijving": "Laptop stuk", "context": "Op kantoor", "doel": "Reparatie"}
     is_relevant("Mijn laptop is kapot", data)
     
-    assert mock_encode.call_count == 2
-    args, _ = mock_encode.call_args_list[1]
+    assert mock_model.encode.call_count == 2
+    args, _ = mock_model.encode.call_args_list[1]
     combined_arg = args[0][0]
     assert "Probleem: Laptop stuk" in combined_arg
     assert "Context: Op kantoor" in combined_arg
