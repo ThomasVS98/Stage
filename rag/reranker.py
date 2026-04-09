@@ -1,17 +1,20 @@
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core import QueryBundle
 
-reranker = SentenceTransformerRerank(
-    model="BAAI/bge-reranker-v2-m3",
-    top_n=5
-)
+_reranker = None
 
-# reranker = SentenceTransformerRerank(
-#     model="cross-encoder/ms-marco-MiniLM-L12-v2",
-#     top_n=6
-# )
+def get_reranker():
+    global _reranker
+    if _reranker is None:
+        _reranker = SentenceTransformerRerank(
+            model="BAAI/bge-reranker-v2-m3",
+            top_n=5
+        )
+    return _reranker
 
 def rerank_nodes(nodes,query:str,threshold: float = 0.50):
+    reranker = get_reranker()
+    
     reranked = reranker.postprocess_nodes(
         nodes,
         query_bundle=QueryBundle(query_str=query)

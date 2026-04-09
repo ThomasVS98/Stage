@@ -9,7 +9,7 @@ logger =  get_logger(__name__)
 
 def build_incident_payload(data:dict)->dict:
     return {
-        "briefDescription": data.get("beschrijving")[:80],
+        "briefDescription": (data.get("beschrijving") or "")[:80],
         "request": f"""
 Context: {data.get("context")}
 
@@ -20,18 +20,11 @@ Doel: {data.get("doel")}
         }
     }
 
-def create_incident(data:dict)->dict:
-    # voor testing soms even topdesk kunnen uitzetten voor ticketing
-    if not settings.TOPDESK_ENABLED:
-        logger.warning("TOPdesk uitgeschakeld: mock ticket wordt opgeslagen")
-        with open('mock_tickets.jsonl',"a",encoding="utf-8") as f:
-            f.write(json.dumps(data,ensure_ascii=False)+"\n")
+def write_mock_ticket(data: dict):
+    with open('mock_tickets.jsonl',"a",encoding="utf-8") as f:
+        f.write(json.dumps(data,ensure_ascii=False)+"\n")
 
-        return {
-            "number": "MOCK-1234",
-            "id": "mock_id"
-        }
-    
+def create_topdesk_incident(data: dict)->dict:
     if not all([settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]):
         logger.error("TOPdesk configuratie onvolledig, controleer env vars")
         raise ExternalServiceError("TOPdesk configuratie onvolledig")
@@ -54,3 +47,20 @@ def create_incident(data:dict)->dict:
     result = response.json()
     logger.info("TOPdesk ticket aangemaakt= %s", result.get("number"))
     return result
+
+def create_incident(data:dict, writer= None)->dict:
+    # voor testing soms even topdesk kunnen uitzetten voor ticketing
+    if not settings.TOPDESK_ENABLED:
+        logger.warning("TOPdesk uitgeschakeld: mock ticket wordt opgeslagen")
+
+        if writer:
+            writer(data)
+        else:
+            write_mock_ticket(data)
+
+        return {
+            "number": "MOCK-1234",
+            "id": "mock_id"
+        }
+    
+    return create_topdesk_incident(data)

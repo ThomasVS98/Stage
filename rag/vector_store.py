@@ -3,7 +3,7 @@ from llama_index.core import VectorStoreIndex
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from utils.logging import get_logger
-from rag.embedding import embed_model
+from rag.embedding import get_embed_model
 
 logger = get_logger(__name__)
 
@@ -22,7 +22,7 @@ def load_collection_index(collection_name:str):
 
     index = VectorStoreIndex.from_vector_store(
         vector_store,
-        embed_model=embed_model
+        embed_model=get_embed_model()
     ) 
 
     logger.info("Collectie '%s' geladen met %s vectors", collection_name, chroma_collection.count())

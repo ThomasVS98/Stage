@@ -3,7 +3,7 @@ from rag.retriever import retrieve_nodes
 from rag.reranker import rerank_nodes
 from rag.context_builder import build_context
 from rag.prompts import generate_answer
-from rag.llm import llm
+from rag.llm import get_llm
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -51,7 +51,7 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False):
             context,
         )
 
-    response = generate_answer(llm, context, query)
+    response = generate_answer(get_llm(), context, query)
 
     answer_text = ""
     for token in response:
