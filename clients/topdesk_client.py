@@ -53,7 +53,7 @@ def create_incident(data:dict, writer= None)->dict:
     if not settings.TOPDESK_ENABLED:
         logger.warning("TOPdesk uitgeschakeld: mock ticket wordt opgeslagen")
 
-        if writer:
+        if writer is not None:
             writer(data)
         else:
             write_mock_ticket(data)
