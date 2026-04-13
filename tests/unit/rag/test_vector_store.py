@@ -28,8 +28,8 @@ def test_load_collection_index_success(
     mock_client.get_collection.return_value = mock_collection
     mock_collection.count.return_value = 10
 
-    mock_vectore_store = MagicMock()
-    mock_vector_cls.return_value = mock_vectore_store
+    mock_vector_store = MagicMock()
+    mock_vector_cls.return_value = mock_vector_store
 
     mock_index = MagicMock()
     mock_index_cls.return_value = mock_index

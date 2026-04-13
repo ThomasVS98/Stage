@@ -4,7 +4,7 @@ from rag.reranker import get_reranker, rerank_nodes
 from unittest.mock import patch, MagicMock
 
 @pytest.fixture(autouse=True)
-def rest_reranker():
+def reset_reranker():
     reranker_module._reranker = None
 
 def test_get_reranker_called_once():
