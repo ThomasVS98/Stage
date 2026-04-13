@@ -36,7 +36,7 @@ def create_ticket_index():
         logger.info("Geen tickets collectie om te verwijderen")
 
     collection = chroma_client.get_or_create_collection(
-        name = "tickets",
+        name="tickets",
         metadata={"hnsw:space": "cosine"}
     )
 
@@ -44,7 +44,7 @@ def create_ticket_index():
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
     index = VectorStoreIndex(
-        nodes = [],
+        nodes=[],
         storage_context=storage_context,
         embed_model=get_embed_model(),
         transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
@@ -72,31 +72,3 @@ def build_ticket_index(limit=300):
     logger.info("Klaar. Aantal vectors: %s", collection.count())
 
     return index
-
-    # chroma_client = chromadb.PersistentClient(path="./chroma_db")
-
-    # try:
-    #     chroma_client.delete_collection("tickets")
-    #     logger.info("Bestaande tickets collectie verwijderd")
-    # except Exception:
-    #     logger.info("Geen tickets collectie om te verwijderen")
-
-    # collection = chroma_client.get_or_create_collection(
-    #     name = "tickets",
-    #     metadata={"hnsw:space": "cosine"}
-    # )
-
-    # vector_store = ChromaVectorStore(chroma_collection=collection)
-    # storage_context = StorageContext.from_defaults(vector_store=vector_store)
-
-    # logger.info("Indexeren...")
-
-    # index = VectorStoreIndex.from_documents(
-    #     documents,
-    #     storage_context=storage_context,
-    #     embed_model=get_embed_model(),
-    #     transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
-    #     show_progress=True
-    # )
-
-    # logger.info("Klaar. Aantal vectors: %s", collection.count())

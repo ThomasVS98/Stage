@@ -9,10 +9,10 @@ from config.settings import settings
 def reset_token_cache(monkeypatch):
     import clients.ms_graph_client as m
 
-    m._token_cache = {
+    monkeypatch.setattr(m, "_token_cache", {
         "access_token": None,
         "expires_at": 0
-    }
+    })
 
     monkeypatch.setattr(settings, "SHAREPOINT_CLIENT_ID", "id")
     monkeypatch.setattr(settings, "SHAREPOINT_CLIENT_SECRET", "secret")
@@ -43,8 +43,11 @@ def test_get_graph_headers_uses_cache(mock_post):
     mock_post.return_value = mock_response
 
     headers1 = get_graph_headers()
+    headers2 = get_graph_headers()
 
     assert headers1["Authorization"] == "Bearer cached_token"
+    assert headers2["Authorization"] == "Bearer cached_token"
+    
     mock_post.assert_called_once()
 
 def test_get_graph_headers_missing_config(monkeypatch):

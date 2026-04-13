@@ -45,17 +45,23 @@ def run_full_ingestion():
 
         sources = load_source_config()
         ticket_limit = 200
+        topdesk_enabled =  False #verwijderen bij connectie fix met topdesk
 
         for src in sources:
             if src.get("type") == "topdesk" and src.get("enabled"):
+                topdesk_enabled = True #verwijderen bij connectie fix met topdesk
                 cfg = src.get("config", {})
                 ticket_limit = cfg.get("incident_limit", 200)
                 break
 
-        build_ticket_index(limit=ticket_limit)
-        process = psutil.Process(os.getpid())
-        logger.info(f"RAM na tickets: {process.memory_info().rss / 1024**2:.2f} MB")
-        logger.info("Tickets geïndexeerd.")
+        #if statement verwijderen bij connectie fix met topdesk
+        if topdesk_enabled:
+            build_ticket_index(limit=ticket_limit)
+            process = psutil.Process(os.getpid())
+            logger.info(f"RAM na tickets: {process.memory_info().rss / 1024**2:.2f} MB")
+            logger.info("Tickets geïndexeerd.")
+        else:
+            logger.info("Topdesk ingestie overgeslagen")
 
         cleanup_temp_files()
 
