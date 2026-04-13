@@ -1,3 +1,4 @@
+from llama_index.vector_stores import chroma
 import os, psutil, shutil, gc
 import chromadb
 from llama_index.core import VectorStoreIndex, StorageContext
@@ -46,9 +47,8 @@ def load_all_data():
         
         except Exception as e:
             logger.exception("Fout bij laden van %s: %s", source_type, e)
-        
-def build_index(document_generator):
 
+def create_index():
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
 
     try:
@@ -74,6 +74,9 @@ def build_index(document_generator):
         show_progress=True
     )
 
+    return index, chroma_collection
+
+def process_documents(index, document_generator):
     count = 0
     for doc in document_generator:
         if "source_id" in doc.metadata:
@@ -86,8 +89,14 @@ def build_index(document_generator):
             gc.collect()
             logger.info("Progress: %s docs geïndexeerd. RAM: %.2f MB", count, psutil.Process().memory_info().rss / 1024**2)
 
+    return count
+        
+def build_index(document_generator):
+    index, chroma_collection = create_index()
+
+    count =  process_documents(index, document_generator)
+
     logger.info("Indexering klaar")
-    gc.collect()
     logger.info("Totaal aantal chuncks in vector store: %s", chroma_collection.count())
 
     return count

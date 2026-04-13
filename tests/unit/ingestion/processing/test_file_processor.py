@@ -81,16 +81,21 @@ def test_process_file_docx_uses_subprocess(mock_clean_text, mock_clean_md, mock_
         args = mock_run.call_args[0][0]
         assert any("python" in str(arg).lower() for arg in args)
 
+@patch("ingestion.processing.file_processor.tempfile.NamedTemporaryFile")
 @patch("ingestion.processing.file_processor.os.path.exists")
 @patch("ingestion.processing.file_processor.os.remove")
 @patch("ingestion.processing.file_processor.subprocess.run")
-def test_process_file_cleanup_on_failure(mock_run, mock_remove, mock_exists):
+def test_process_file_cleanup_on_failure(mock_run, mock_remove, mock_exists, mock_tempfile):
     mock_exists.return_value = True
     mock_run.side_effect = Exception("Subprocess crashed")
+
+    mock_temp = MagicMock()
+    mock_temp.name = "/temp/tempfile.pdf"
+    mock_tempfile.return_value.__enter__.return_value = mock_temp
     
     process_file("file.pdf", "file.pdf")
     
-    assert mock_remove.call_count == 1
+    mock_remove.assert_called_once_with("/temp/tempfile.pdf")
 
 @patch("ingestion.processing.file_processor.SimpleDirectoryReader")
 @patch("ingestion.processing.file_processor.clean_text")

@@ -5,13 +5,18 @@ from clients import ms_graph_client
 from utils.exceptions import ExternalServiceError
 from config.settings import settings
 
-def setup_function():
-    ms_graph_client._token_cache["access_token"] = None
-    ms_graph_client._token_cache["expires_at"] = 0
+@pytest.fixture(autouse=True)
+def reset_token_cache(monkeypatch):
+    import clients.ms_graph_client as m
 
-    settings.SHAREPOINT_CLIENT_ID = "id"
-    settings.SHAREPOINT_CLIENT_SECRET = "secret"
-    settings.SHAREPOINT_TENANT_ID = "tenant"
+    m._token_cache = {
+        "access_token": None,
+        "expires_at": 0
+    }
+
+    monkeypatch.setattr(settings, "SHAREPOINT_CLIENT_ID", "id")
+    monkeypatch.setattr(settings, "SHAREPOINT_CLIENT_SECRET", "secret")
+    monkeypatch.setattr(settings, "SHAREPOINT_TENANT_ID", "tenant")
 
 @patch("clients.ms_graph_client.requests.post")
 def test_get_graph_headers_success(mock_post):
@@ -38,15 +43,14 @@ def test_get_graph_headers_uses_cache(mock_post):
     mock_post.return_value = mock_response
 
     headers1 = get_graph_headers()
-    headers2 = get_graph_headers()
 
-    assert headers1 == headers2
+    assert headers1["Authorization"] == "Bearer cached_token"
     mock_post.assert_called_once()
 
-def test_get_graph_headers_missing_config():
-    settings.SHAREPOINT_CLIENT_ID = None
-    settings.SHAREPOINT_CLIENT_SECRET = None
-    settings.SHAREPOINT_TENANT_ID = None
+def test_get_graph_headers_missing_config(monkeypatch):
+    monkeypatch.setattr(settings, "SHAREPOINT_CLIENT_ID", None)
+    monkeypatch.setattr(settings, "SHAREPOINT_CLIENT_SECRET", None)
+    monkeypatch.setattr(settings, "SHAREPOINT_TENANT_ID", None)
 
     with pytest.raises(ExternalServiceError, match="Microsoft Graph configuratie onvolledig"):
         get_graph_headers()

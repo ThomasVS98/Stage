@@ -6,6 +6,8 @@ Ik ontwikkel dus een agent die gebruikersvragen ontvangt en op basis van die vra
 
 ## Architectuur
 Deze oplossing zal gerealiseerd worden via een RAG-framework. Deze zal het Large Language Model de nodige context geven voor een correct en relevant antwoord. Het RAG-systeem zal gebruiken maken van een zelf gekozen embedding model en vector store. De volledige tool stack is open-source.
+
+
 ```
 Stage
 ├─ api
@@ -68,7 +70,19 @@ Stage
 │  │  └─ test_main.py
 │  └─ unit
 │     ├─ clients
+│     │  ├─ test_ms_graph_client.py
 │     │  └─ test_topdesk_client.py
+│     ├─ ingestion
+│     │  ├─ loaders
+│     │  │  ├─ test_sharepoint_loader.py
+│     │  │  └─ test_topdesk_loader.py
+│     │  ├─ preprocessing
+│     │  │  ├─ test_cleaning.py
+│     │  │  └─ test_docling_parser.py
+│     │  ├─ processing
+│     │  │  └─ test_file_processor.py
+│     │  ├─ test_ingest_pipeline.py
+│     │  └─ test_ingest_tickets.py
 │     └─ services
 │        └─ test_validation.py
 └─ utils
