@@ -9,7 +9,7 @@ from utils.exceptions import ExternalServiceError
 
 logger = get_logger(__name__)
 
-def build_ticket_index(limit=200):
+def fetch_ticket_documents(limit=300):
     logger.info("Topdesk tickets ophalen...")
 
     try:
@@ -23,6 +23,10 @@ def build_ticket_index(limit=200):
     documents = incidents_to_documents(items)
     logger.info("%s documenten gemaakt", len(documents))
 
+    return documents
+
+
+def create_ticket_index():
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
 
     try:
@@ -39,18 +43,60 @@ def build_ticket_index(limit=200):
     vector_store = ChromaVectorStore(chroma_collection=collection)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-    logger.info("Indexeren...")
-
-    index = VectorStoreIndex.from_documents(
-        documents,
+    index = VectorStoreIndex(
+        nodes = [],
         storage_context=storage_context,
         embed_model=get_embed_model(),
         transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
         show_progress=True
     )
+    return index, collection
 
+def process_ticket_documents(index, documents):
+    count = 0
+
+    for doc in documents:
+        index.insert(doc)
+        count += 1
+
+    return count
+
+def build_ticket_index(limit=300):
+    documents = fetch_ticket_documents(limit)
+    logger.info("Indexeren...")
+    index, collection = create_ticket_index()
+
+    count = process_ticket_documents(index, documents)
+
+    logger.info("Klaar. %s documenten geïndexeerd", count)
     logger.info("Klaar. Aantal vectors: %s", collection.count())
+
     return index
 
-if __name__ == "__main__":
-    build_ticket_index(limit=200)
+    # chroma_client = chromadb.PersistentClient(path="./chroma_db")
+
+    # try:
+    #     chroma_client.delete_collection("tickets")
+    #     logger.info("Bestaande tickets collectie verwijderd")
+    # except Exception:
+    #     logger.info("Geen tickets collectie om te verwijderen")
+
+    # collection = chroma_client.get_or_create_collection(
+    #     name = "tickets",
+    #     metadata={"hnsw:space": "cosine"}
+    # )
+
+    # vector_store = ChromaVectorStore(chroma_collection=collection)
+    # storage_context = StorageContext.from_defaults(vector_store=vector_store)
+
+    # logger.info("Indexeren...")
+
+    # index = VectorStoreIndex.from_documents(
+    #     documents,
+    #     storage_context=storage_context,
+    #     embed_model=get_embed_model(),
+    #     transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
+    #     show_progress=True
+    # )
+
+    # logger.info("Klaar. Aantal vectors: %s", collection.count())
