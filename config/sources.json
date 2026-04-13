@@ -2,7 +2,7 @@
   {
     "id": "8e3d0909-7bfe-4b45-94a9-85cf5d598c09",
     "type": "sharepoint",
-    "enabled": false,
+    "enabled": true,
     "config": {
       "site_id": "LMS_SITE_ID",
       "label": "LMS Site"

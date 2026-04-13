@@ -1,4 +1,3 @@
-from llama_index.vector_stores import chroma
 import os, psutil, shutil, gc
 import chromadb
 from llama_index.core import VectorStoreIndex, StorageContext
