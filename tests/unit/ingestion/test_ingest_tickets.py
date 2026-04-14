@@ -99,10 +99,8 @@ def test_build_ticket_index_success(
         {"get_nodes_from_documents": lambda self, docs: docs}
     )()
 
-    patcher = patch("ingestion.ingest_tickets.SentenceSplitter", return_value=mock_splitter)
-    patcher.start()
-
-    result = build_ticket_index(limit=10)
+    with patch("ingestion.ingest_tickets.SentenceSplitter", return_value=mock_splitter):
+        result = build_ticket_index(limit=10)
 
     mock_fetch.assert_called_once_with(10)
     mock_create.assert_called_once()
@@ -129,10 +127,8 @@ def test_build_ticket_index_multiple_batches(
         {"get_nodes_from_documents": lambda self, docs: docs}
     )()
 
-    patcher = patch("ingestion.ingest_tickets.SentenceSplitter", return_value=mock_splitter)
-    patcher.start()
-
-    _, count = build_ticket_index(limit=200)
+    with patch("ingestion.ingest_tickets.SentenceSplitter", return_value=mock_splitter):
+        _, count = build_ticket_index(limit=200)
 
     assert mock_index.insert_nodes.call_count == 3
     assert count == 120
