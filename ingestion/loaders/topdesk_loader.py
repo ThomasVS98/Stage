@@ -30,7 +30,7 @@ def has_usable_content(item:dict)->bool:
 def fetch_topdesk_knowledge_items():
     if not all([settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]):
         logger.error("TOPdesk loader configuratie ontbreekt!")
-        return []
+        return
 
     url = f"{settings.TOPDESK_BASE_URL}/services/knowledge-base-v1/knowledgeItems"
     params = {
@@ -39,8 +39,6 @@ def fetch_topdesk_knowledge_items():
         "language":"nl",
         "fields": "title,description,content,keywords"
     }
-
-    all_items = []
 
     while url:
         r = requests.get(
@@ -53,60 +51,49 @@ def fetch_topdesk_knowledge_items():
         r.raise_for_status()
         data = r.json()
 
-        all_items.extend(data.get("item", [] ))
+        items = data.get("item", [])
+
+        for item in items:
+            if not has_usable_content(item):
+                continue
+
+            c = ((item.get("translation") or {}).get("content") or {})
+            title = (c.get("title") or "").strip()
+            description_md = html_to_markdown(c.get("description") or "")
+            content_md = html_to_markdown(c.get("content") or "")
+            keywords = (c.get("keywords") or "").strip()
+
+            text_parts = []
+
+            if title:
+                text_parts.append(f"Titel: {title}")
+            if description_md:
+                text_parts.append(f"Beschrijving:\n{description_md}")
+            if content_md:
+                text_parts.append(f"Inhoud:\n{content_md}")
+            if keywords:
+                text_parts.append(f"Trefwoorden: {keywords}")
+
+            full_text = "\n\n".join(text_parts).strip()
+            if not full_text:
+                continue
+
+            meta = {
+                "source": "topdesk",
+                "source_type": "topdesk_kb",
+                "source_id": item.get("id"),
+                "number": item.get("number"),
+                "title": title
+            }
+
+            doc = Document(text=full_text, metadata=meta)
+            doc.excluded_embed_metadata_keys = ["source_type", "source_id"]
+            doc.excluded_llm_metadata_keys = ["source_type", "source_id"]
+
+            yield doc
+
         url = data.get("next") or None
         params = None
-
-    usable = [i for i in all_items if has_usable_content(i)]
-
-    logger.info("TOPdesk knowledge-items opgehaald: %s (bruikbaar: %s)", len(all_items), len(usable))
-
-    return usable
-
-def topdesk_items_to_documents(items:list[dict]) -> list[Document]:
-    
-    docs = []
-
-    for item in items:
-        c = ((item.get("translation") or {}).get("content") or {})
-        title = (c.get("title") or "").strip()
-        description_md = html_to_markdown(c.get("description") or "")
-        content_md = html_to_markdown(c.get("content") or "")
-        keywords = (c.get("keywords") or "").strip()
-
-        text_parts = []
-
-        if title:
-            text_parts.append(f"Titel: {title}")
-        if description_md:
-            text_parts.append(f"Beschrijving:\n{description_md}")
-        if content_md:
-            text_parts.append(f"Inhoud:\n{content_md}")
-        if keywords:
-            text_parts.append(f"Trefwoorden: {keywords}")
-
-        full_text = "\n\n".join(text_parts).strip()
-        if not full_text:
-            continue
-
-        meta = {
-            "source": "topdesk",
-            "source_type": "topdesk_kb",
-            "source_id": item.get("id"),
-            "number": item.get("number"),
-            "title": title
-        }
-
-        doc = Document(text=full_text, metadata=meta)
-        doc.excluded_embed_metadata_keys = ["source_type","source_id"]
-        doc.excluded_llm_metadata_keys = ["source_type","source_id"]
-        docs.append(doc)
-
-    return docs
-
-def fetch_topdesk_documents():
-    items = fetch_topdesk_knowledge_items()
-    return topdesk_items_to_documents(items)
 
 def fetch_topdesk_incidents(limit=300):
     if not all([settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]):
@@ -177,7 +164,6 @@ Details:
 
 @register_loader("topdesk", schema={
     "include_kb": {"type": "bool", "default": True},
-    "include_incidents": {"type": "bool", "default": False},
     "incident_limit": {"type": "int", "default": 200}
 
 })
@@ -186,26 +172,16 @@ def load_topdesk_source(config: dict):
     Haalt knowledge items op
     """
 
-    docs = []
-
     include_kb = config.get("include_kb", True)
-    include_incidents = config.get("include_incidents", False)
 
     try:
         if include_kb:
-            kb_docs = fetch_topdesk_documents()
-            logger.info("Topdesk kennis-items docs: %s", len(kb_docs))
-            docs.extend(kb_docs)
+            count = 0
 
-        if include_incidents:
-            incidents = fetch_topdesk_incidents(
-                limit=config.get("incident_limit", 200)
-            )
-            incident_docs = incidents_to_documents(incidents)
-            docs.extend(incident_docs)
-            logger.info("Topdesk incidents docs in kennisbronnen: %s", len(incidents))
+            for doc in fetch_topdesk_knowledge_items():
+                yield doc
+                count += 1
+            logger.info("TOPdesk kennis-items docs: %s", count)
     
     except Exception as e:
         logger.exception("Fout bij ophalen van TOPdesk data: %s", e)
-
-    return docs

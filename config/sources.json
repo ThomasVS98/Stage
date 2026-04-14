@@ -20,10 +20,9 @@
   {
     "id": "2586992c-74bc-4cc9-80c8-f9ead403a894",
     "type": "topdesk",
-    "enabled": false,
+    "enabled": true,
     "config": {
       "include_kb": true,
-      "include_incidents": false,
       "incident_limit": 200
     }
   }
