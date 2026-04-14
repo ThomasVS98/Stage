@@ -16,3 +16,4 @@ pypdfium2
 pydantic-settings
 pytest
 pytest-mock
+psutil
