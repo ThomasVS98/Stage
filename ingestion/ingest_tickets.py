@@ -47,28 +47,30 @@ def create_ticket_index():
         nodes=[],
         storage_context=storage_context,
         embed_model=get_embed_model(),
-        transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
+        #transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
         show_progress=True
     )
     return index, collection
-
-def process_ticket_documents(index, documents):
-    count = 0
-
-    for doc in documents:
-        index.insert(doc)
-        count += 1
-
-    return count
 
 def build_ticket_index(limit=300):
     documents = fetch_ticket_documents(limit)
     logger.info("Indexeren...")
     index, collection = create_ticket_index()
 
-    count = process_ticket_documents(index, documents)
+    splitter = SentenceSplitter(chunk_size=2000, chunk_overlap=0)
+
+    BATCH_SIZE = 50
+    count = 0
+
+    for item in range(0, len(documents), BATCH_SIZE):
+        batch = documents[item:item+BATCH_SIZE]
+        nodes = splitter.get_nodes_from_documents(batch)
+        index.insert_nodes(nodes)
+        count += len(batch)
+
+        logger.info("Tickets voortgang: %s/%s geïndexeerd", count, len(documents))
 
     logger.info("Klaar. %s documenten geïndexeerd", count)
     logger.info("Klaar. Aantal vectors: %s", collection.count())
 
-    return index
+    return index, count

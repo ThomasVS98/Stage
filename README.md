@@ -82,7 +82,18 @@ Stage
 │     │  ├─ processing
 │     │  │  └─ test_file_processor.py
 │     │  ├─ test_ingest_pipeline.py
-│     │  └─ test_ingest_tickets.py
+│     │  ├─ test_ingest_tickets.py
+│     │  └─ test_loader_registry.py
+│     ├─ rag
+│     │  ├─ test_context_builder.py
+│     │  ├─ test_embedding.py
+│     │  ├─ test_llm.py
+│     │  ├─ test_pipeline.py
+│     │  ├─ test_prompts.py
+│     │  ├─ test_reranker.py
+│     │  ├─ test_retriever.py
+│     │  ├─ test_ticket_matcher.py
+│     │  └─ test_vector_store.py
 │     └─ services
 │        └─ test_validation.py
 └─ utils

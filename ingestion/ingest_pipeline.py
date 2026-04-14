@@ -69,24 +69,44 @@ def create_index():
         nodes=[],
         storage_context=storage_context,
         embed_model=get_embed_model(),
-        transformations=[SentenceSplitter(chunk_size=700, chunk_overlap=100)],
+        #transformations=[SentenceSplitter(chunk_size=700, chunk_overlap=100)],
         show_progress=True
     )
 
     return index, chroma_collection
 
 def process_documents(index, document_generator):
+    batch = []
+    BATCH_SIZE = 20
     count = 0
+    splitter = SentenceSplitter(chunk_size=700, chunk_overlap=100)
+
+    process = psutil.Process()
+
     for doc in document_generator:
         if "source_id" in doc.metadata:
             doc.doc_id = doc.metadata["source_id"]
-        
-        index.insert(doc)
-        count += 1
 
-        if count % 20 == 0:
+        batch.append(doc)
+
+        if len(batch) == BATCH_SIZE:
+            nodes = splitter.get_nodes_from_documents(batch)
+            index.insert_nodes(nodes)
+            count += len(batch)
+            batch = []
+
             gc.collect()
-            logger.info("Progress: %s docs geïndexeerd. RAM: %.2f MB", count, psutil.Process().memory_info().rss / 1024**2)
+            logger.info(
+                "Progress: %s docs geïndexeerd. RAM: %.2f MB",
+                count,
+                process.memory_info().rss / 1024**2
+            )
+
+    # laatste batch verwerken
+    if batch:
+        nodes = splitter.get_nodes_from_documents(batch)
+        index.insert_nodes(nodes)
+        count += len(batch)
 
     return count
         

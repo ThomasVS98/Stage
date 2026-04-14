@@ -128,14 +128,23 @@ def test_build_index_inserts_documents(monkeypatch):
     inserted = []
 
     class MockIndex:
-        def insert(self, doc):
-            inserted.append(doc)
+        def insert_nodes(self, nodes):
+            inserted.extend(nodes)
 
     mock_collection = type("Collection", (), {"count": lambda self: 2})()
 
     monkeypatch.setattr(
         "ingestion.ingest_pipeline.create_index",
         lambda: (MockIndex(), mock_collection)
+    )
+
+    monkeypatch.setattr(
+        "ingestion.ingest_pipeline.SentenceSplitter",
+        lambda *args, **kwargs: type(
+            "MockSplitter",
+            (),
+            {"get_nodes_from_documents": lambda self, docs: docs}
+        )()
     )
 
     count = build_index(iter(docs))
@@ -147,7 +156,7 @@ def test_build_index_sets_doc_id(monkeypatch):
     doc = Doc(metadata={"source_id": "123"})
 
     class MockIndex:
-        def insert(self, d):
+        def insert_nodes(self, nodes):
             pass
 
     mock_collection = type("Collection", (), {"count": lambda self: 1})()
@@ -155,6 +164,15 @@ def test_build_index_sets_doc_id(monkeypatch):
     monkeypatch.setattr(
         "ingestion.ingest_pipeline.create_index",
         lambda: (MockIndex(), mock_collection)
+    )
+
+    monkeypatch.setattr(
+        "ingestion.ingest_pipeline.SentenceSplitter",
+        lambda *args, **kwargs: type(
+            "MockSplitter",
+            (),
+            {"get_nodes_from_documents": lambda self, docs: docs}
+        )()
     )
 
     build_index(iter([doc]))
@@ -188,13 +206,22 @@ def test_build_index_triggers_gc(monkeypatch):
     )
 
     class MockIndex:
-        def insert(self, doc): pass
+        def insert_nodes(self, nodes): pass
 
     mock_collection = type("Collection", (), {"count": lambda self: 40})()
 
     monkeypatch.setattr(
         "ingestion.ingest_pipeline.create_index",
         lambda: (MockIndex(), mock_collection)
+    )
+
+    monkeypatch.setattr(
+    "ingestion.ingest_pipeline.SentenceSplitter",
+    lambda *args, **kwargs: type(
+        "MockSplitter",
+        (),
+        {"get_nodes_from_documents": lambda self, docs: docs}
+        )()
     )
 
     build_index(iter(docs))
@@ -212,13 +239,22 @@ def test_build_index_no_gc_below_threshold(monkeypatch):
     )
 
     class MockIndex:
-        def insert(self, doc): pass
+        def insert_nodes(self, nodes): pass
 
     mock_collection = type("Collection", (), {"count": lambda self: 19})()
 
     monkeypatch.setattr(
         "ingestion.ingest_pipeline.create_index",
         lambda: (MockIndex(), mock_collection)
+    )
+
+    monkeypatch.setattr(
+    "ingestion.ingest_pipeline.SentenceSplitter",
+    lambda *args, **kwargs: type(
+        "MockSplitter",
+        (),
+        {"get_nodes_from_documents": lambda self, docs: docs}
+        )()
     )
 
 
@@ -266,3 +302,50 @@ def test_cleanup_temp_files_skips_missing_dirs(monkeypatch):
 
     assert removed == []
 
+def test_process_documents_batches(monkeypatch):
+    from ingestion.ingest_pipeline import process_documents
+
+    docs = [Doc() for _ in range(25)]
+    inserted = []
+
+    class MockIndex:
+        def insert_nodes(self, nodes):
+            inserted.extend(nodes)
+
+    monkeypatch.setattr(
+        "ingestion.ingest_pipeline.SentenceSplitter",
+        lambda *args, **kwargs: type(
+            "MockSplitter",
+            (),
+            {"get_nodes_from_documents": lambda self, docs: docs}
+        )()
+    )
+
+    count = process_documents(MockIndex(), iter(docs))
+
+    assert count == 25
+    assert len(inserted) == 25
+
+def test_process_documents_only_small_batch(monkeypatch):
+    from ingestion.ingest_pipeline import process_documents
+
+    docs = [Doc() for _ in range(5)]
+    inserted = []
+
+    class MockIndex:
+        def insert_nodes(self, nodes):
+            inserted.extend(nodes)
+
+    monkeypatch.setattr(
+        "ingestion.ingest_pipeline.SentenceSplitter",
+        lambda *args, **kwargs: type(
+            "MockSplitter",
+            (),
+            {"get_nodes_from_documents": lambda self, docs: docs}
+        )()
+    )
+
+    count = process_documents(MockIndex(), iter(docs))
+
+    assert count == 5
+    assert len(inserted) == 5

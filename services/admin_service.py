@@ -45,41 +45,41 @@ def run_full_ingestion():
 
         sources = load_source_config()
         ticket_limit = 200
-        topdesk_enabled =  False #verwijderen bij connectie fix met topdesk
 
         for src in sources:
             if src.get("type") == "topdesk" and src.get("enabled"):
-                topdesk_enabled = True #verwijderen bij connectie fix met topdesk
                 cfg = src.get("config", {})
                 ticket_limit = cfg.get("incident_limit", 200)
                 break
 
-        #if statement verwijderen bij connectie fix met topdesk
-        if topdesk_enabled:
-            build_ticket_index(limit=ticket_limit)
-            process = psutil.Process(os.getpid())
-            logger.info(f"RAM na tickets: {process.memory_info().rss / 1024**2:.2f} MB")
-            logger.info("Tickets geïndexeerd.")
-        else:
-            logger.info("Topdesk ingestie overgeslagen")
+        _, ticket_count = build_ticket_index(limit=ticket_limit)
+        process = psutil.Process(os.getpid())
+        logger.info(f"RAM na tickets: {process.memory_info().rss / 1024**2:.2f} MB")
+        logger.info("Tickets geïndexeerd: %s", ticket_count)
 
         cleanup_temp_files()
 
-        reload_index("docs")  # Zorg ervoor dat de query module de nieuwe index gebruikt
+        reload_index("docs")
         reload_index("tickets")
 
         size = get_folder_size("./chroma_db")
         logger.info(f"ChromaDB grootte: {size:.2f} MB")
 
-        return doc_count
+        return {
+            "docs_indexed": doc_count,
+            "tickets_indexed": ticket_count
+        }
+    
+    except IngestionError:
+        raise
     
     except ExternalServiceError as e:
         logger.exception("Externe service fout tijdens ingestie")
-        raise IngestionError(f"Externe Service fout tijdens ingestie: {str(e)}") from e
+        raise IngestionError(str(e)) from e
     
     except Exception as e:
         logger.exception("Onverwachte fout tijdens ingestie")
-        raise IngestionError(f"Onverwachte ingestie fout: {str(e)}") from e
+        raise IngestionError(str(e)) from e
 
 def process_sources(sources: list[SourceModel]):
     validated_sources = []

@@ -11,11 +11,13 @@ logger = get_logger(__name__)
 async def trigger_ingest():
     logger.info("Ingestie verzoek ontvangen via API")
 
-    doc_count = run_full_ingestion()
+    result = run_full_ingestion()
     return {
-        "status": "success", 
-        "message": f"Succes! {doc_count} documenten geïndexeerd en tickets geïndexeerd."
-        }
+        "status": "success",
+        "docs_indexed": result["docs_indexed"],
+        "tickets_indexed": result["tickets_indexed"],
+        "message": f"Succes! {result['docs_indexed']} documenten en {result['tickets_indexed']} tickets geïndexeerd."
+    }
     
 @router.get("/sources")
 async def get_sources():
