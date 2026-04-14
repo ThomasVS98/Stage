@@ -74,4 +74,138 @@ def test_answer_not_relevant(mock_validate, mock_store, mock_relevant):
 @patch("services.intake.intake_service.session_store")
 @patch("services.intake.intake_service.validate_answer", return_value="cleaned")
 def test_answer_returns_similar_ticket(mock_validate, mock_store, mock_relevant, mock_match):
-    mock_store.get.return_value = {}
+    mock_store.get.return_value = {
+        "step": 0,
+        "data": {"original_question": "vraag"}
+    }
+
+    mock_match.return_value = {"text": "gevonden ticket"}
+
+    with patch("services.intake.intake_service.INTAKE_QUESTIONS", [("key", "question")]):
+        result = answer({
+            "session_id": "abc",
+            "answer": "test"
+        })
+    
+    assert result["done"] is True
+    assert "similar_ticket" in result
+
+
+@patch("services.intake.intake_service.create_incident")
+@patch("services.intake.intake_service.find_similar_ticket", return_value=None)
+@patch("services.intake.intake_service.is_relevant", return_value=True)
+@patch("services.intake.intake_service.session_store")
+@patch("services.intake.intake_service.validate_answer", return_value="cleaned")
+def test_answer_creates_ticket(
+    mock_validate,
+    mock_store,
+    mock_relevant,
+    mock_match,
+    mock_create
+):
+    mock_store.get.return_value = {
+        "step": 0,
+        "data": {"original_question": "vraag"}
+    }
+
+    mock_create.return_value = {
+        "number": "INC001",
+        "id": "123"
+    }
+
+    with patch("services.intake.intake_service.INTAKE_QUESTIONS", [("key", "question")]):
+        result = answer({
+            "session_id": "abc",
+            "answer": "test"
+        })
+
+    assert result["done"] is True
+    assert "ticket" in result
+    assert result["ticket"]["number"] == "INC001"
+    assert result["ticket"]["id"] == "123"
+
+@patch("services.intake.intake_service.create_incident")
+@patch("services.intake.intake_service.find_similar_ticket", return_value=None)
+@patch("services.intake.intake_service.is_relevant", return_value=True)
+@patch("services.intake.intake_service.session_store")
+@patch("services.intake.intake_service.validate_answer", return_value="cleaned")
+def test_answer_create_ticket_raises(
+    mock_validate,
+    mock_store,
+    mock_relevant,
+    mock_match,
+    mock_create
+):
+    mock_store.get.return_value = {
+        "step": 0,
+        "data": {"original_question": "vraag"}
+    }
+
+    mock_create.side_effect = ExternalServiceError("fail")
+
+    with patch("services.intake.intake_service.INTAKE_QUESTIONS", [("key", "question")]):
+        with pytest.raises(ExternalServiceError):
+            answer({
+                "session_id": "abc",
+                "answer": "test"
+            })
+
+
+@patch("services.intake.intake_service.create_incident")
+@patch("services.intake.intake_service.find_similar_ticket", return_value=None)
+@patch("services.intake.intake_service.is_relevant", return_value=True)
+@patch("services.intake.intake_service.session_store")
+@patch("services.intake.intake_service.validate_answer", return_value="cleaned")
+def test_answer_no_original_question(
+    mock_validate,
+    mock_store,
+    mock_relevant,
+    mock_match,
+    mock_create
+):
+    mock_store.get.return_value = {
+        "step": 0,
+        "data": {}
+    }
+
+    mock_create.return_value = {"number": "INC001", "id": "123"}
+
+
+    with patch("services.intake.intake_service.INTAKE_QUESTIONS", [("key", "question")]):
+        result = answer({
+            "session_id": "abc",
+            "answer": "test"
+        })
+
+    assert result["done"] is True
+    assert "ticket" in result
+
+@patch("services.intake.intake_service.create_incident")
+@patch("services.intake.intake_service.find_similar_ticket")
+@patch("services.intake.intake_service.is_relevant", return_value=True)
+@patch("services.intake.intake_service.session_store")
+@patch("services.intake.intake_service.validate_answer", return_value="cleaned")
+def test_answer_matching_exception(
+    mock_validate,
+    mock_store,
+    mock_relevant,
+    mock_match,
+    mock_create
+):
+    mock_store.get.return_value = {
+        "step": 0,
+        "data": {"original_question": "vraag"}
+    }
+
+    mock_match.side_effect = Exception("boom")
+
+    mock_create.return_value = {"number": "INC001", "id": "123"}
+
+    with patch("services.intake.intake_service.INTAKE_QUESTIONS", [("key", "question")]):
+        result = answer({
+            "session_id": "abc",
+            "answer": "test"
+        })
+
+    assert result["done"] is True
+    assert "ticket" in result
