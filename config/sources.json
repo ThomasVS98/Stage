@@ -5,7 +5,8 @@
     "enabled": true,
     "config": {
       "site_id": "LMS_SITE_ID",
-      "label": "LMS Site"
+      "label": "LMS Site",
+      "include_external_links": true
     }
   },
   {
@@ -14,7 +15,8 @@
     "enabled": true,
     "config": {
       "site_id": "SERVICE_CATALOG_ID",
-      "label": "IT Service Catalog"
+      "label": "IT Service Catalog",
+      "include_external_links": true
     }
   },
   {
