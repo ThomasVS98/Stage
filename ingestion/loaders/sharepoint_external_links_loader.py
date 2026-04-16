@@ -1,4 +1,5 @@
 from urllib.parse import urlparse
+import ipaddress
 import re
 import requests
 from bs4 import BeautifulSoup
@@ -8,7 +9,7 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-def scrape_page(url: str) -> str:
+def scrape_page(url: str) -> tuple[str, str]:
     try:
         res = requests.get(
             url, 
@@ -16,8 +17,16 @@ def scrape_page(url: str) -> str:
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
                 "Accept-Language": "en-US,en;q=0.9"
-            }
+            },
+            allow_redirects=True
         )
+
+        final_url = res.url
+
+        if not is_valid_external(final_url):
+            logger.warning("Redirect naar onveilige URL geblokkeerd: %s -> %s", url, final_url)
+            return "", "Externe pagina"
+        
         if res.status_code != 200:
             logger.warning("Mislukt om pagina's op te halen: %s", url)
             return "", "Externe pagina"
@@ -51,7 +60,26 @@ def scrape_page(url: str) -> str:
         return "", "Externe pagina"
 
 def is_valid_external(url:str) -> bool:
-    host = (urlparse(url).hostname or "").lower()
+    parsed = urlparse(url)
+
+    if parsed.scheme not in ("http", "https"):
+        return False
+    
+    host = parsed.hostname
+    if not host:
+        return False
+    
+    host = host.lower()
+
+    if host == "localhost":
+        return False
+    
+    try:
+        ip = ipaddress.ip_address(host)
+        if ip.is_private or ip.is_loopback or ip.is_link_local:
+            return False
+    except ValueError:
+        pass
 
     bad_paths = [
     "download",
@@ -82,62 +110,3 @@ def is_valid_external(url:str) -> bool:
         return False
     
     return True
-
-# @register_loader("sharepoint_external_links", schema={
-#     "site_id": {"type": "string", "required": True},
-#     "label": {"type": "string", "required": False}
-# })
-# def load_sharepoint_external_links(config: dict):
-#     site_id = config.get("site_id")
-#     label = config.get("label", "Externe links loader")
-
-#     seen_urls = set()
-
-#     logger.info("Externe links loader gestart: %s", label)
-
-#     pages =  get_cached_pages(site_id, label, fetch_all_sharepoint_pages)
-
-#     logger.info("Aantal SharePoint pagina's gevonden: %s", len(pages))
-
-#     for page in pages:
-#         title = page["metadata"].get("title")
-#         content = page["content"]
-
-#         logger.info("Pagina: %s", title)
-
-#         links = re.findall(r"\((https?://[^\s]+)\)", content)
-
-#         filtered_links = [l for l in links if is_valid_external(l)]
-
-#         logger.info("Aantal externe links gevonden: %s", len(filtered_links))
-
-#         for link in filtered_links[:3]:
-#             normalized = link.rstrip("/").lower()
-
-#             if normalized in seen_urls:
-#                 logger.info("Skip duplicate link: %s", link)
-#                 continue
-
-#             seen_urls.add(normalized)
-
-#             logger.info("Scrapen van externe link: %s", link)
-
-#             content, page_title = scrape_page(link)
-
-#             if not content.strip():
-#                 continue
-
-#             metadata = {
-#                 "source": "external",
-#                 "source_type": "webpage",
-#                 "url": link,
-#                 "title": page_title,
-#                 "parent_page": title
-#             }
-
-#             doc = Document(text=content, metadata=metadata)
-
-#             doc.excluded_embed_metadata_keys = ["url"]
-#             doc.excluded_llm_metadata_keys = ["url"]
-
-#             yield doc

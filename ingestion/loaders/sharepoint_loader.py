@@ -1,6 +1,5 @@
 import os
 import requests
-import re
 from bs4 import BeautifulSoup
 import html
 import urllib.parse
@@ -88,14 +87,17 @@ def fetch_all_sharepoint_pages(site_id, site_label):
         content_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}/microsoft.graph.sitePage?$expand=canvasLayout"
         res_content = graph_get(content_url)
 
-        full_page_text = ""
+        if res_content.status_code != 200:
+            logger.warning("Content ophalen mislukt voor pagina: %s", title)
+            continue
 
-        if res_content.status_code == 200:
-            page_details = res_content.json()
-            content_parts, all_links = extract_page_content(page_details)
-            full_page_text = title + "\n\n" + "\n\n".join(content_parts)
-            if not full_page_text:
-                continue
+
+        page_details = res_content.json()
+        content_parts, all_links = extract_page_content(page_details)
+        full_page_text = title + "\n\n" + "\n\n".join(content_parts)
+
+        if not content_parts:
+            continue
 
         final_data.append({
             "content": full_page_text.strip(),
@@ -224,10 +226,14 @@ def load_sharepoint_source(config: dict):
 
                 logger.info("Scrapen van externe link: %s", link)
 
-                content, page_title = scrape_page(link)
+                try:
+                    content, page_title = scrape_page(link)
+                except Exception as e:
+                    logger.warning("Fout bij scrapen voor %s: %s", link, e)
+                    continue
 
                 if not content.strip():
-                    continue
+                    content = f"Externe pagina (niet gescraped): {link}"
 
                 ext_doc = Document(
                     text=content,

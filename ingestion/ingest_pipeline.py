@@ -11,7 +11,6 @@ from utils.exceptions import ExternalServiceError
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
 import ingestion.loaders.onedrive_loader
-import ingestion.loaders.sharepoint_external_links_loader
 
 setup_logging()
 
