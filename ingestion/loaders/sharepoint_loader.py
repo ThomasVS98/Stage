@@ -1,5 +1,6 @@
 import os
 import requests
+import re
 from bs4 import BeautifulSoup
 import html
 import urllib.parse
@@ -8,6 +9,7 @@ from ingestion.preprocessing.cleaning import normalize_text
 from ingestion.loader_registry import register_loader
 from llama_index.core import Document
 from ingestion.processing.file_processor import process_file, create_document_from_file
+from ingestion.loaders.sharepoint_external_links_loader import is_valid_external, scrape_page
 from utils.logging import get_logger
 from config.settings import settings
 from clients.ms_graph_client import graph_get
@@ -97,13 +99,14 @@ def fetch_all_sharepoint_pages(site_id, site_label):
 
         final_data.append({
             "content": full_page_text.strip(),
+            "links": all_links,
             "metadata": {
             "source": "sharepoint",
             "source_id": page_id,
             "title": title,
             "url": url,
             "doc_type": "webpage",
-            "site_label": site_label,
+            "site_label": site_label
         }
         })
         logger.info("Opgehaalde site: %s", title)
@@ -171,7 +174,8 @@ def download_sharepoint_file(download_url, save_path):
     
 @register_loader("sharepoint", schema={
     "site_id": {"type": "string", "required": True},
-    "label": {"type": "string", "required": False}
+    "label": {"type": "string", "required": False},
+    "include_external_links": {"type": "bool", "required": False, "default": False}
 })
 def load_sharepoint_source(config: dict):
     """
@@ -181,6 +185,7 @@ def load_sharepoint_source(config: dict):
 
     site_id = config.get("site_id")
     label = config.get("label", "SharePoint")
+    include_external_links = config.get("include_external_links", False)
 
     if not site_id:
         logger.warning("Geen site_id gevonden in config voor SharePoint bron")
@@ -189,6 +194,8 @@ def load_sharepoint_source(config: dict):
 
     logger.info("SharePoint pagina's ophalen: %s", label)
     pages = fetch_all_sharepoint_pages(site_id, label)
+
+    seen_urls = set()
 
     for page in pages:
         full_text = page["content"]
@@ -203,6 +210,40 @@ def load_sharepoint_source(config: dict):
         new_doc.excluded_llm_metadata_keys = ["url", "source_id"]
  
         yield new_doc
+
+        if include_external_links:
+            links = page.get("links", [])
+            filtered_links = [l["url"] for l in links if is_valid_external(l["url"])]
+            for link in filtered_links[:3]:
+                normalized = link.rstrip("/").lower()
+
+                if normalized in seen_urls:
+                    continue
+
+                seen_urls.add(normalized)
+
+                logger.info("Scrapen van externe link: %s", link)
+
+                content, page_title = scrape_page(link)
+
+                if not content.strip():
+                    continue
+
+                ext_doc = Document(
+                    text=content,
+                    metadata={
+                        "source": "sharepoint",
+                        "source_type": "external_webpage",
+                        "url": link,
+                        "title": page_title,
+                        "parent_page": page["metadata"].get("title")
+                    }
+                )
+
+                ext_doc.excluded_embed_metadata_keys = ["url"]
+                ext_doc.excluded_llm_metadata_keys = ["url"]
+
+                yield ext_doc
 
     logger.info("SharePoint bestanden ophalen: %s", label)
     files = fetch_sharepoint_files(site_id, label)
