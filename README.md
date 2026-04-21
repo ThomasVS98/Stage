@@ -31,6 +31,7 @@ Stage
 │  ├─ ingest_tickets.py
 │  ├─ loaders
 │  │  ├─ onedrive_loader.py
+│  │  ├─ sharepoint_external_links_loader.py
 │  │  ├─ sharepoint_loader.py
 │  │  └─ topdesk_loader.py
 │  ├─ loader_registry.py
@@ -41,6 +42,7 @@ Stage
 │  │  └─ __init__.py
 │  ├─ processing
 │  │  └─ file_processor.py
+│  ├─ utils
 │  └─ __init__.py
 ├─ pytest.ini
 ├─ rag
@@ -62,9 +64,10 @@ Stage
 │  │  ├─ intake_service.py
 │  │  ├─ intake_state.py
 │  │  └─ validation.py
-│  └─ orchestrator.py
+│  └─ qa_service.py
 ├─ stores
 │  └─ session_store.py
+├─ temp_sharepoint
 ├─ tests
 │  ├─ integration
 │  │  └─ test_main.py
@@ -74,6 +77,7 @@ Stage
 │     │  └─ test_topdesk_client.py
 │     ├─ ingestion
 │     │  ├─ loaders
+│     │  │  ├─ test_sharepoint_external_links_loader.py
 │     │  │  ├─ test_sharepoint_loader.py
 │     │  │  └─ test_topdesk_loader.py
 │     │  ├─ preprocessing
@@ -94,8 +98,16 @@ Stage
 │     │  ├─ test_retriever.py
 │     │  ├─ test_ticket_matcher.py
 │     │  └─ test_vector_store.py
-│     └─ services
-│        └─ test_validation.py
+│     ├─ services
+│     │  ├─ intake
+│     │  │  ├─ test_intake_service.py
+│     │  │  └─ test_validation.py
+│     │  ├─ test_admin_service.py
+│     │  └─ test_qa_service.py
+│     ├─ stores
+│     │  └─ test_session_store.py
+│     └─ utils
+│        └─ test_config_loader.py
 └─ utils
    ├─ config_loader.py
    ├─ exceptions.py
