@@ -8,6 +8,7 @@ Ik ontwikkel dus een agent die gebruikersvragen ontvangt en op basis van die vra
 Deze oplossing zal gerealiseerd worden via een RAG-framework. Deze zal het Large Language Model de nodige context geven voor een correct en relevant antwoord. Het RAG-systeem zal gebruiken maken van een zelf gekozen embedding model en vector store. De volledige tool stack is open-source.
 
 
+
 ```
 Stage
 ├─ api

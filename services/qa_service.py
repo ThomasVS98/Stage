@@ -39,9 +39,12 @@ def extract_sources(nodes):
         meta = node.node.metadata
         title = meta.get("title")
         url = meta.get("url")
-        source_str = f"{title} ({url})" if url else title
-        if source_str and source_str not in sources:
-            sources.append(source_str)
+        source = meta.get("source")
+
+        if source == "topdesk":
+            sources.append(f"{title} (TOPdesk)")
+        else:
+            sources.append(f"{title}: {url}")
 
     return sources
 
