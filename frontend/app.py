@@ -117,7 +117,7 @@ with tab_chat:
                         st.write(f"**Doel:** {data['data'].get('doel')}")
 
                         if data.get("similar_ticket"):
-                            st.warning("Er bestaat momenteel al minstens 1 ticket die mogelijk relevant is voor jouw aanvraag. De ICTS dienst zal dit verder bekijken.")
+                            st.warning("Er bestaat momenteel al minstens 1 ticket dat mogelijk relevant is voor jouw aanvraag. Dit wordt dus momenteel al behandeld.")
                         if data.get("ticket"):
                             st.success(
                                     f"✅ Je ticket werd succesvol aangemaakt.\n\n"
