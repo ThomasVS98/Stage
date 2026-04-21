@@ -71,4 +71,19 @@ def test_answer_with_results(mock_rag):
     result = answer("vraag")
 
     assert result["answer"] == "Dit is het antwoord"
-    assert result["sources"] == ["Doc1 (http://test.com)"]
+    assert result["sources"] == ["Doc1: http://test.com"]
+
+@patch("services.qa_service.run_rag")
+def test_answer_with_topdesk_source(mock_rag):
+    mock_node = MagicMock()
+    mock_node.node.metadata = {
+        "title": "Kennis-item 0",
+        "source": "topdesk"
+    }
+
+    mock_rag.return_value = ([mock_node], "Antwoord")
+
+    result = answer("vraag")
+
+    assert result["answer"] == "Antwoord"
+    assert result["sources"] == ["Kennis-item 0 (TOPdesk)"]
