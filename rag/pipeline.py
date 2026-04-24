@@ -51,11 +51,6 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False):
             context,
         )
 
-    response = generate_answer(get_llm(), context, query)
-
-    answer_text = ""
-    for token in response:
-        if token.delta:
-            answer_text += token.delta
+    answer_text = generate_answer(get_llm(), context, query)
 
     return valid_nodes, answer_text
