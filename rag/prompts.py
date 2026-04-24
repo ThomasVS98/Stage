@@ -1,5 +1,6 @@
 import json
 import re
+from llama_index.core.llms import ChatMessage
 from utils.logging import get_logger
 
 VALID_INTENTS = ["SUPPORT", "ALGEMEEN", "IRRELEVANT"]
@@ -69,33 +70,26 @@ def detect_intent_prompt(query:str)->str:
     Vraag: {query}
     """
 
-def answer_prompt(context:str, query:str)->str:
+def answer_system_prompt() -> str:
+    return """Je bent een IT-assistent voor de medewerkers van de Thomas More hogeschool.
+
+        RICHTLIJNEN:
+        1. Antwoord uitsluitend op basis van de onderstaande context.
+        2. Gebruik enkel expliciete informatie uit de context. Verzin nooit zelf informatie als die niet in context staat.
+        3. Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
+        4. Zeg alleen "ik heb niet genoeg informatie" wanneer er GEEN bruikbare informatie in de context staat om de vraag te beantwoorden.
+        5. Gebruik GEEN verwijzingen naar documenten, titels of bronnen in je antwoord.
+        6. Behoud tijdslimieten, aantallen, voorwaarden en volgorde precies zoals ze in de context staan.
+        7. Schrijf een duidelijk en direct antwoord voor de gebruiker. Gebruik NOOIT formuleringen zoals "volgens de context", "in de tekst staat", "het document zegt" of gelijkaardige bronverwijzingen.
+        8. Geef een volledig antwoord en neem alle relevante stappen, voorwaarden en uitzonderingen uit de context op. Laat geen relevante informatie weg en vermijd duplicatie.
+        9. Gebruik een bullet list wanneer er meerdere stappen of voorwaarden zijn.
+            - Elk punt moet op een nieuwe lijn staan
+            - Laat een lege lijn tussen elk bullet point
+            - Elk bullet point bevat exact één voorwaarde of regel
+        """
+
+def answer_user_prompt(context:str, query:str)->str:
     return f"""
-    Je bent een IT-assistent voor de medewerkers van de Thomas More hogeschool.
-
-    RICHTLIJNEN:
-    1. Antwoord uitsluitend op basis van de onderstaande context.
-    2. Gebruik enkel expliciete informatie uit de context.
-       Voeg niets toe en laat niets weg.
-       Je mag de informatie NIET samenvatten, herinterpreteren of vereenvoudigen.
-    3. Als een specifiek detail (zoals een knopnaam of URL) niet in de tekst staat, verzin deze dan niet.
-    4. Zeg alleen "ik heb niet genoeg informatie" wanneer er GEEN bruikbare informatie in de context staat om de vraag praktisch te beantwoorden.
-    5. Gebruik GEEN verwijzingen naar documenten, titels of bronnen in je antwoord.
-    6. Noem tijdslimieten, aantallen, voorwaarden en volgorde precies zoals ze in de context staan. Geef procedures en deadlines letterlijk weer.
-    7. Schrijf een direct antwoord voor de gebruiker. Gebruik NOOIT formuleringen zoals "volgens de context", "in de tekst staat", "het document zegt" of gelijkaardige bronverwijzingen.
-    8. Geef NOOIT je eigen mening of interpretaties. Volg de informatie van de context.
-    9. Geef een volledig antwoord: neem alle stappen, voorwaarden, uitzonderingen en waarschuwingen uit de context op.
-       Je mag GEEN enkel element weglaten, ook niet als het gelijkaardig lijkt aan andere elementen.
-    10. Gebruik een bullet list wanneer er meerdere stappen of voorwaarden zijn.
-        - Elk punt moet op een nieuwe lijn staan
-        - Laat een lege lijn tussen elk bullet point
-        - Elk bullet point bevat exact één voorwaarde of regel
-    11. Behoud alle tijdsvoorwaarden exact zoals in de context. Als er meerdere periodes of datums zijn, moet je elke periode expliciet vermelden.
-    12. Als twee regels op elkaar lijken, moet je ze toch apart vermelden. Je mag geen regels combineren tot één algemene regel.
-    13. Gebruik geen compacte of inline opsommingen. Schrijf elke bullet volledig uit op een aparte lijn.
-    14. Gebruik OF een genummerde lijst (1. 2. 3.) OF bullet points (-) MAAR combineer deze nooit.
-
-
     Context:
     {context}
 
@@ -104,7 +98,6 @@ def answer_prompt(context:str, query:str)->str:
 
     Antwoord: 
     """
-
 def detect_intent(llm, query:str):
     if not is_valid_query(query):
         return "IRRELEVANT"
@@ -134,5 +127,11 @@ def detect_intent(llm, query:str):
     return "ONBEKEND"
 
 def generate_answer(llm, context, query):
-    prompt = answer_prompt(context, query)
-    return llm.stream_complete(prompt)
+    messages = [
+        ChatMessage(role="system", content=answer_system_prompt()),
+        ChatMessage(role="user", content=answer_user_prompt(context, query))
+    ]
+
+    response = llm.chat(messages)
+
+    return response.message.content

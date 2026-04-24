@@ -8,7 +8,7 @@ def get_reranker():
     if _reranker is None:
         _reranker = SentenceTransformerRerank(
             model="BAAI/bge-reranker-v2-m3",
-            top_n=5
+            top_n=3
         )
     return _reranker
 
