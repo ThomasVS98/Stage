@@ -79,7 +79,7 @@ def process_documents(index, document_generator):
     batch = []
     BATCH_SIZE = 20
     count = 0
-    splitter = SentenceSplitter(chunk_size=700, chunk_overlap=100)
+    splitter = SentenceSplitter(chunk_size=512, chunk_overlap=200)
 
     process = psutil.Process()
 
