@@ -4,11 +4,14 @@ from services.intake.validation import validate_answer, is_relevant
 from clients.topdesk_client import create_incident
 from stores.session_store import session_store
 from rag.ticket_matcher import find_similar_ticket
+from langfuse import observe
 import uuid
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
+@observe(name="intake_start")
 def start(original_question:str):
     session_id = str(uuid.uuid4())
     session_store.create(session_id)
@@ -20,6 +23,7 @@ def start(original_question:str):
         "question": question
     }
 
+@observe(name="intake_step")
 def answer(payload:dict):
     session_id = payload.get("session_id")
     answer = payload.get("answer")
@@ -58,29 +62,32 @@ def answer(payload:dict):
             match = None
 
         if match and match.get("text"):
-            logger.info("Gelijkaardig ticket gevonden voor sessie %s", session_id)
-            return {
-                "done": True,
-                "data": data,
-                "similar_ticket": match
-            }
+            with observe(name="intake_similar_ticket_found"):
+                logger.info("Gelijkaardig ticket gevonden voor sessie %s", session_id)
+                return {
+                    "done": True,
+                    "data": data,
+                    "similar_ticket": match
+                }
         
         try:
-            ticket = create_incident(data)
+            with observe(name="intake_create_ticket"):
+                ticket = create_incident(data)
         except ExternalServiceError:
             logger.exception("Fout bij aanmaken van ticket in sessie %s", session_id)
             raise
         
         logger.info("Nieuw ticket aangemaakt voor sessie %s: %s", session_id, ticket.get("number"))
 
-        return {
-            "done": True,
-            "data": data,
-            "ticket": {
-                "number": ticket.get("number"),
-                "id": ticket.get("id")
+        with observe(name="intake_complete"):
+            return {
+                "done": True,
+                "data": data,
+                "ticket": {
+                    "number": ticket.get("number"),
+                    "id": ticket.get("id")
+                }
             }
-        }
     next_step = step + 1
     session_store.increment_step(session_id)
     _ , next_question = INTAKE_QUESTIONS[next_step]

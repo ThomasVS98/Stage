@@ -1,10 +1,12 @@
 from rag.prompts import detect_intent
 from rag.llm import get_llm
 from rag.pipeline import run_rag
+from langfuse import observe
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+@observe(name="intake_trigger")
 def handle_no_results(query: str):
     intent = detect_intent(get_llm(), query)
     logger.info("Intent: %s", intent)
