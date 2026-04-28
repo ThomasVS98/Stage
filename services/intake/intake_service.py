@@ -23,7 +23,7 @@ def start(original_question:str):
         "question": question
     }
 
-@observe(name="intake_step")
+@observe(name="intake_answer")
 def answer(payload:dict):
     session_id = payload.get("session_id")
     answer = payload.get("answer")
@@ -62,32 +62,29 @@ def answer(payload:dict):
             match = None
 
         if match and match.get("text"):
-            with observe(name="intake_similar_ticket_found"):
-                logger.info("Gelijkaardig ticket gevonden voor sessie %s", session_id)
-                return {
-                    "done": True,
-                    "data": data,
-                    "similar_ticket": match
-                }
+            logger.info("Gelijkaardig ticket gevonden voor sessie %s", session_id)
+            return {
+                "done": True,
+                "data": data,
+                "similar_ticket": match
+            }
         
         try:
-            with observe(name="intake_create_ticket"):
-                ticket = create_incident(data)
+            ticket = create_incident(data)
         except ExternalServiceError:
             logger.exception("Fout bij aanmaken van ticket in sessie %s", session_id)
             raise
         
         logger.info("Nieuw ticket aangemaakt voor sessie %s: %s", session_id, ticket.get("number"))
 
-        with observe(name="intake_complete"):
-            return {
-                "done": True,
-                "data": data,
-                "ticket": {
-                    "number": ticket.get("number"),
-                    "id": ticket.get("id")
-                }
+        return {
+            "done": True,
+            "data": data,
+            "ticket": {
+                "number": ticket.get("number"),
+                "id": ticket.get("id")
             }
+        }
     next_step = step + 1
     session_store.increment_step(session_id)
     _ , next_question = INTAKE_QUESTIONS[next_step]
