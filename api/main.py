@@ -1,12 +1,19 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from openinference.instrumentation.llama_index import LlamaIndexInstrumentor
+from langfuse import get_client
+from dotenv import load_dotenv
 from api.routes.intake_routes import router as intake_router
 from api.routes.rag_routes import router as rag_router
 from api.routes.admin_routes import router as admin_router
 from utils.logging import setup_logging
 from utils.exceptions import AppValidationError, SourceConfigError, ExternalServiceError, IngestionError
 
+load_dotenv()
 setup_logging()
+
+LlamaIndexInstrumentor().instrument()
+langfuse = get_client()
 
 app = FastAPI()
 

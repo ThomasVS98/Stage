@@ -17,3 +17,6 @@ pydantic-settings
 pytest
 pytest-mock
 psutil
+langfuse
+openinference-instrumentation-llama-index
+opentelemetry-exporter-otlp-proto-grpc==1.41.1

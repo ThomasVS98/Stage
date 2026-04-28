@@ -1,3 +1,6 @@
+from langfuse import observe
+
+@observe(name="build_context")
 def build_context(nodes):
 
     context = ""

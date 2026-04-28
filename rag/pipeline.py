@@ -4,11 +4,12 @@ from rag.reranker import rerank_nodes
 from rag.context_builder import build_context
 from rag.prompts import generate_answer
 from rag.llm import get_llm
+from langfuse import observe
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-
+@observe(name="rag_pipeline")
 def run_rag(query: str, collection: str = "docs", debug: bool = False):
     idx = get_index(collection)
 

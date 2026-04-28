@@ -1,6 +1,7 @@
 import json
 import re
 from llama_index.core.llms import ChatMessage
+from langfuse import observe
 from utils.logging import get_logger
 
 VALID_INTENTS = ["SUPPORT", "ALGEMEEN", "IRRELEVANT"]
@@ -126,6 +127,7 @@ def detect_intent(llm, query:str):
     logger.warning("Intent detection failed for output: %s", raw)
     return "ONBEKEND"
 
+@observe(name="generate_answer")
 def generate_answer(llm, context, query):
     messages = [
         ChatMessage(role="system", content=answer_system_prompt()),

@@ -1,5 +1,6 @@
-from llama_index.core import QueryBundle
+from langfuse import observe
 
+@observe(name="retrieve")
 def retrieve_nodes(index, query:str):
     retriever = index.as_retriever(
         similarity_top_k = 40,
