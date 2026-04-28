@@ -1,5 +1,6 @@
 from llama_index.core.postprocessor import SentenceTransformerRerank
 from llama_index.core import QueryBundle
+from langfuse import observe
 
 _reranker = None
 
@@ -12,6 +13,7 @@ def get_reranker():
         )
     return _reranker
 
+@observe(name="rerank")
 def rerank_nodes(nodes,query:str,threshold: float = 0.50):
     reranker = get_reranker()
     
