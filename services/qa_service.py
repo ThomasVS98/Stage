@@ -1,4 +1,4 @@
-import threading
+from concurrent.futures import ThreadPoolExecutor
 from rag.prompts import detect_intent, judge_answer
 from rag.llm import get_llm
 from rag.pipeline import run_rag
@@ -6,6 +6,7 @@ from langfuse import observe
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
+executor = ThreadPoolExecutor(max_workers=2)
 
 @observe(name="intake_trigger")
 def handle_no_results(query: str):
@@ -63,8 +64,8 @@ def run_judge_async(llm, query, context, answer_text):
 
         logger.info("JUDGE: %s", judge)
 
-    except Exception as e:
-        logger.warning("Judge failed: %s", e)
+    except Exception:
+        logger.exception("Judge failed")
 
 @observe(name="answer")
 def answer(query: str, debug: bool = True):
@@ -85,11 +86,10 @@ def answer(query: str, debug: bool = True):
 
     llm = get_llm()
 
-    threading.Thread(
-        target=run_judge_async, 
-        args=(llm, query, context, answer_text), 
-        daemon=True
-    ).start()
+    executor.submit(
+        run_judge_async, 
+        llm, query, context, answer_text
+    )
 
 
     return {
