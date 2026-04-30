@@ -3,6 +3,7 @@ import requests
 import json
 from utils.logging import get_logger
 from config.settings import settings
+from langfuse import observe
 from utils.exceptions import ExternalServiceError
 
 logger =  get_logger(__name__)
@@ -48,6 +49,7 @@ def create_topdesk_incident(data: dict)->dict:
     logger.info("TOPdesk ticket aangemaakt= %s", result.get("number"))
     return result
 
+@observe(name="create_incident")
 def create_incident(data:dict, writer= None)->dict:
     # voor testing soms even topdesk kunnen uitzetten voor ticketing
     if not settings.TOPDESK_ENABLED:

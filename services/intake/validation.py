@@ -2,7 +2,7 @@ import re
 from utils.exceptions import AppValidationError
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-
+from langfuse import observe
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -16,7 +16,8 @@ def get_model():
             "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
         )
     return _model
-        
+
+@observe(name="is_relevant")    
 def is_relevant(original_question:str, intake_data:dict, threshold: float = 0.5):
     combined = f"""
     Probleem: {intake_data.get("beschrijving") or ""}

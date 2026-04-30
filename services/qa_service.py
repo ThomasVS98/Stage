@@ -1,4 +1,5 @@
-from rag.prompts import detect_intent
+import threading
+from rag.prompts import detect_intent, judge_answer
 from rag.llm import get_llm
 from rag.pipeline import run_rag
 from langfuse import observe
@@ -50,10 +51,26 @@ def extract_sources(nodes):
 
     return sources
 
+
+def run_judge_async(llm, query, context, answer_text):
+    try:
+        judge = judge_answer(
+            llm,
+            query=query,
+            context=context,
+            answer=answer_text
+        )
+
+        logger.info("JUDGE: %s", judge)
+
+    except Exception as e:
+        logger.warning("Judge failed: %s", e)
+
+@observe(name="answer")
 def answer(query: str, debug: bool = True):
 
     logger.info("Ontvangen vraag: %s", query)
-    nodes, answer_text = run_rag(query,debug=debug)
+    nodes, answer_text, context = run_rag(query,debug=debug, include_context=True)
 
     if nodes is None:
         return {
@@ -64,6 +81,16 @@ def answer(query: str, debug: bool = True):
         return handle_no_results(query)
     
     sources = extract_sources(nodes)
+
+
+    llm = get_llm()
+
+    threading.Thread(
+        target=run_judge_async, 
+        args=(llm, query, context, answer_text), 
+        daemon=True
+    ).start()
+
 
     return {
         "answer": answer_text,

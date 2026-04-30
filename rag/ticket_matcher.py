@@ -1,12 +1,14 @@
 from rag.retriever import retrieve_nodes
 from rag.reranker import rerank_nodes
 from rag.vector_store import get_index
+from langfuse import observe
 from utils.logging import get_logger
 
 SIMILARITY_THRESHOLD = 0.65
 
 logger = get_logger(__name__)
 
+@observe(name="find_similar_ticket")
 def find_similar_ticket(data:dict):
     query = f"""
     Probleem: {data.get("beschrijving")}
