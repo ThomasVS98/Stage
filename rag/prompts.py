@@ -14,6 +14,17 @@ def extract_json(text:str):
 def is_valid_query(q: str) -> bool:
     return bool(re.search(r"[a-zA-Z]{3,}", q))
 
+def parse_llm_json(raw: str, fallback: dict):
+    json_str = extract_json(raw)
+
+    if json_str:
+        try:
+            return json.loads(json_str)
+        except Exception as e:
+            logger.exception("Error occurred while parsing JSON: %s", e)
+    
+    return fallback
+
 def detect_intent_prompt(query:str)->str:
     return f"""
      Je bent een IT-dienst assistent voor de medewerkers van de Thomas More hogeschool
@@ -99,6 +110,8 @@ def answer_user_prompt(context:str, query:str)->str:
 
     Antwoord: 
     """
+
+@observe(name="detect_intent")
 def detect_intent(llm, query:str):
     if not is_valid_query(query):
         return "IRRELEVANT"
@@ -180,3 +193,36 @@ def judge_system_prompt() -> str:
     } 
 
     """
+
+@observe(name="judge_answer")
+def judge_answer(llm, query: str, context: str, answer: str):
+    messages = [
+        ChatMessage(role="system", content=judge_system_prompt()),
+        ChatMessage(
+            role="user", 
+            content=f"""
+    Vraag:
+    {query}
+
+    Context: 
+    {context}
+
+    Antwoord: 
+    {answer}
+    """
+        )
+    ]
+
+    response = llm.chat(messages)
+    raw = response.message.content
+
+    return parse_llm_json(
+        raw,
+        fallback={
+            "faithfulness": None,
+            "relevance": None,
+            "usefulness": None,
+            "uitleg": None,
+            "raw_output": raw
+        }
+    )

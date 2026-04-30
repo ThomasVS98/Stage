@@ -10,11 +10,11 @@ from utils.logging import get_logger
 logger = get_logger(__name__)
 
 @observe(name="rag_pipeline")
-def run_rag(query: str, collection: str = "docs", debug: bool = False):
+def run_rag(query: str, collection: str = "docs", debug: bool = False, include_context: bool = False):
     idx = get_index(collection)
 
     if idx is None:
-        return None, None
+        return None, None, None
     
     nodes = retrieve_nodes(idx, query)
 
@@ -24,7 +24,7 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False):
             logger.info("Retrieved node: %s", node.node.metadata.get('title'))
 
     if not nodes:
-        return [], None
+        return [], None, None
     
     valid_nodes = rerank_nodes(nodes, query)
 
@@ -34,7 +34,7 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False):
             logger.info("score %.3f | %s", node.score, node.node.metadata.get('title'))
 
     if not valid_nodes:
-        return [], None
+        return [], None, None
     
     if debug:
         best_score = valid_nodes[0].score
@@ -53,5 +53,8 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False):
         )
 
     answer_text = generate_answer(get_llm(), context, query)
+
+    if include_context:
+        return valid_nodes, answer_text, context
 
     return valid_nodes, answer_text
