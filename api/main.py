@@ -8,6 +8,8 @@ from api.routes.rag_routes import router as rag_router
 from api.routes.admin_routes import router as admin_router
 from utils.logging import setup_logging
 from utils.exceptions import AppValidationError, SourceConfigError, ExternalServiceError, IngestionError
+from services.qa_service import executor
+from contextlib import asynccontextmanager
 
 load_dotenv()
 setup_logging()
@@ -15,7 +17,12 @@ setup_logging()
 LlamaIndexInstrumentor().instrument()
 langfuse = get_client()
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    executor.shutdown(wait=False)
+
+app = FastAPI(lifespan=lifespan)
 
 @app.exception_handler(AppValidationError)
 async def validation_exception_handler(request: Request, exc: AppValidationError):
