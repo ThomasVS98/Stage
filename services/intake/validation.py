@@ -17,7 +17,7 @@ def get_model():
         )
     return _model
 
-@observe(name="is_relevant")    
+@observe(name="is_relevant")
 def is_relevant(original_question:str, intake_data:dict, threshold: float = 0.5):
     combined = f"""
     Probleem: {intake_data.get("beschrijving") or ""}

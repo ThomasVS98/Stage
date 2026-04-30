@@ -14,7 +14,9 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False, include_c
     idx = get_index(collection)
 
     if idx is None:
-        return None, None, None
+        if include_context:
+            return None, None, None
+        return None, None
     
     nodes = retrieve_nodes(idx, query)
 
@@ -24,7 +26,9 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False, include_c
             logger.info("Retrieved node: %s", node.node.metadata.get('title'))
 
     if not nodes:
-        return [], None, None
+        if include_context:
+            return [], None, None
+        return [], None
     
     valid_nodes = rerank_nodes(nodes, query)
 
@@ -34,7 +38,9 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False, include_c
             logger.info("score %.3f | %s", node.score, node.node.metadata.get('title'))
 
     if not valid_nodes:
-        return [], None, None
+        if include_context:
+            return [], None, None
+        return [], None
     
     if debug:
         best_score = valid_nodes[0].score
