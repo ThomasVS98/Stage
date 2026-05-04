@@ -4,10 +4,11 @@ from ingestion.loaders.topdesk_loader import (
     html_to_markdown,
     fetch_topdesk_knowledge_items,
     fetch_topdesk_incidents,
-    load_topdesk_source
-    )
+    load_topdesk_source,
+)
 from unittest.mock import patch, MagicMock
 from config.settings import settings
+
 
 @patch("ingestion.loaders.topdesk_loader.requests.get")
 def test_fetch_topdesk_knowledge_items_pagination(mock_get, monkeypatch):
@@ -18,33 +19,28 @@ def test_fetch_topdesk_knowledge_items_pagination(mock_get, monkeypatch):
 
     res1 = MagicMock()
     res1.json.return_value = {
-         "item": [{
-            "id": "1",
-            "number": "KB001",
-            "translation": {
-                "content": {
-                    "title": "Titel 1",
-                    "description": "<p>Beschrijving</p>",
-                    "content": "<p>Doc 1</p>",
-                    "keywords": "test"
-                }
+        "item": [
+            {
+                "id": "1",
+                "number": "KB001",
+                "translation": {
+                    "content": {
+                        "title": "Titel 1",
+                        "description": "<p>Beschrijving</p>",
+                        "content": "<p>Doc 1</p>",
+                        "keywords": "test",
+                    }
+                },
             }
-        }],
-        "next": "next_url"
+        ],
+        "next": "next_url",
     }
     res1.raise_for_status.return_value = None
 
     res2 = MagicMock()
     res2.json.return_value = {
-        "item": [{
-            "id": "2",
-            "translation": {
-                "content": {
-                    "content": "Doc 2"
-                }
-            }
-        }],
-        "next": None
+        "item": [{"id": "2", "translation": {"content": {"content": "Doc 2"}}}],
+        "next": None,
     }
     res2.raise_for_status.return_value = None
 
@@ -66,37 +62,20 @@ def test_fetch_topdesk_knowledge_items_pagination(mock_get, monkeypatch):
 
 
 def test_has_usable_content_true():
-    item = {
-        "translation": {
-            "content": {
-                "content": "Dit is tekst"
-            }
-        }
-    }
+    item = {"translation": {"content": {"content": "Dit is tekst"}}}
 
     assert has_usable_content(item) is True
 
+
 def test_has_usable_content_empty():
-    item = {
-        "translation": {
-            "content": {
-                "content": " "
-            }
-        }
-    }
+    item = {"translation": {"content": {"content": " "}}}
 
     assert has_usable_content(item) is False
+
 
 def test_has_usable_content_false_empty():
-    item = {
-        "translation": {
-            "content": {
-                "content": "   "
-            }
-        }
-    }
+    item = {"translation": {"content": {"content": "   "}}}
     assert has_usable_content(item) is False
-
 
 
 def test_has_usable_content_missing_structure():
@@ -111,7 +90,7 @@ def test_incidents_to_documents_basic():
             "id": "1",
             "number": "INC001",
             "briefDescription": "Laptop werkt niet",
-            "request": "Kan niet opstarten"
+            "request": "Kan niet opstarten",
         }
     ]
 
@@ -125,18 +104,13 @@ def test_incidents_to_documents_basic():
     assert doc.metadata["source_type"] == "incident"
     assert doc.metadata["source_id"] == "1"
 
+
 def test_incidents_to_documents_empty_skipped():
-    items = [
-        {
-            "id": "1",
-            "number": "INC001",
-            "briefDescription": "",
-            "request": ""
-        }
-    ]
+    items = [{"id": "1", "number": "INC001", "briefDescription": "", "request": ""}]
 
     docs = incidents_to_documents(items)
     assert len(docs) == 0
+
 
 def test_incidents_to_documents_only_description():
     items = [
@@ -144,12 +118,13 @@ def test_incidents_to_documents_only_description():
             "id": "1",
             "number": "INC001",
             "briefDescription": "Printer stuk",
-            "request": ""
+            "request": "",
         }
     ]
     docs = incidents_to_documents(items)
     assert len(docs) == 1
     assert "Printer stuk" in docs[0].text
+
 
 def test_incidents_to_documents_only_request():
     items = [
@@ -157,7 +132,7 @@ def test_incidents_to_documents_only_request():
             "id": "1",
             "number": "INC001",
             "briefDescription": "",
-            "request": "Papier blijft vastzitten"
+            "request": "Papier blijft vastzitten",
         }
     ]
 
@@ -165,10 +140,11 @@ def test_incidents_to_documents_only_request():
     assert len(docs) == 1
     assert "Papier blijft vastzitten" in docs[0].text
 
+
 def test_html_to_markdown():
     html = "<h1>Titel</h1><p>Tekst met <b>vet</b> en &amp; teken.</p><ul><li>Item 1</li><li>Item 2</li></ul>"
     md_text = html_to_markdown(html)
-    
+
     # Check voor de header (ATX stijl: #)
     assert "# Titel" in md_text
     # Check voor vetgedrukte tekst
@@ -179,10 +155,12 @@ def test_html_to_markdown():
     assert "- Item 1" in md_text
     assert "- Item 2" in md_text
 
+
 def test_html_to_markdown_empty_input():
     """Controleert of lege input ook een lege string teruggeeft zonder te crashen."""
     assert html_to_markdown("") == ""
     assert html_to_markdown(None) == ""
+
 
 @patch("ingestion.loaders.topdesk_loader.requests.get")
 def test_fetch_topdesk_skips_empty_items(mock_get, monkeypatch):
@@ -196,7 +174,7 @@ def test_fetch_topdesk_skips_empty_items(mock_get, monkeypatch):
             {"id": "1", "translation": {"content": {"content": " "}}},
             {"id": "2", "translation": {"content": {"content": "Valid"}}},
         ],
-        "next": None
+        "next": None,
     }
 
     res.raise_for_status.return_value = None
@@ -208,7 +186,8 @@ def test_fetch_topdesk_skips_empty_items(mock_get, monkeypatch):
     assert len(docs) == 1
     assert docs[0].metadata["source_id"] == "2"
 
-def test_fetch_topdesk_missing_config(monkeypatch,caplog):
+
+def test_fetch_topdesk_missing_config(monkeypatch, caplog):
     monkeypatch.setattr(settings, "TOPDESK_BASE_URL", None)
     monkeypatch.setattr(settings, "TOPDESK_USER", None)
     monkeypatch.setattr(settings, "TOPDESK_SECRET", None)
@@ -218,6 +197,7 @@ def test_fetch_topdesk_missing_config(monkeypatch,caplog):
     assert result == []
     assert "configuratie ontbreekt" in caplog.text.lower()
 
+
 @patch("ingestion.loaders.topdesk_loader.requests.get")
 def test_fetch_topdesk_incidents_basic(mock_get, monkeypatch):
     monkeypatch.setattr(settings, "TOPDESK_BASE_URL", "https://example.topdesk.net")
@@ -225,10 +205,7 @@ def test_fetch_topdesk_incidents_basic(mock_get, monkeypatch):
     monkeypatch.setattr(settings, "TOPDESK_SECRET", "secret")
 
     res = MagicMock()
-    res.json.return_value = [
-        {"id": "1"},
-        {"id": "2"}
-    ]
+    res.json.return_value = [{"id": "1"}, {"id": "2"}]
 
     res.raise_for_status.return_value = None
 
@@ -238,6 +215,7 @@ def test_fetch_topdesk_incidents_basic(mock_get, monkeypatch):
 
     assert len(result) == 2
     assert result[0]["id"] == "1"
+
 
 @patch("ingestion.loaders.topdesk_loader.requests.get")
 def test_fetch_topdesk_incidents_respects_limit(mock_get, monkeypatch):
@@ -255,16 +233,15 @@ def test_fetch_topdesk_incidents_respects_limit(mock_get, monkeypatch):
 
     assert len(result) == 10
 
+
 @patch("ingestion.loaders.topdesk_loader.fetch_topdesk_knowledge_items")
 def test_load_topdesk_source(mock_fetch):
-    mock_fetch.return_value = iter([
-        MagicMock(),
-        MagicMock()
-    ])
+    mock_fetch.return_value = iter([MagicMock(), MagicMock()])
 
     docs = list(load_topdesk_source({"include_kb": True}))
 
     assert len(docs) == 2
+
 
 @patch("ingestion.loaders.topdesk_loader.fetch_topdesk_knowledge_items")
 def test_load_topdesk_source_exception(mock_fetch, caplog):
@@ -275,6 +252,7 @@ def test_load_topdesk_source_exception(mock_fetch, caplog):
     assert len(docs) == 0
     assert "Fout bij ophalen van TOPdesk data: fail" in caplog.text
 
+
 def test_load_topdesk_source_no_config(monkeypatch):
     monkeypatch.setattr(settings, "TOPDESK_BASE_URL", None)
     monkeypatch.setattr(settings, "TOPDESK_USER", None)
@@ -283,5 +261,3 @@ def test_load_topdesk_source_no_config(monkeypatch):
     docs = list(load_topdesk_source({"include_kb": True}))
 
     assert docs == []
-
-

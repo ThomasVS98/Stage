@@ -21,6 +21,7 @@ setup_logging()
 
 logger = get_logger(__name__)
 
+
 def load_all_data():
 
     sources = load_source_config()
@@ -48,9 +49,10 @@ def load_all_data():
         except ExternalServiceError:
             logger.exception("Kritische fout bij bron: %s", source_type)
             raise
-        
+
         except Exception as e:
             logger.exception("Fout bij laden van %s: %s", source_type, e)
+
 
 def create_index():
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
@@ -61,10 +63,9 @@ def create_index():
     except Exception:
         logger.info("Geen collectie docs om te verwijderen")
         pass
-    
+
     chroma_collection = chroma_client.get_or_create_collection(
-        name = "docs",
-        metadata = {"hnsw:space": "cosine"}
+        name="docs", metadata={"hnsw:space": "cosine"}
     )
 
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
@@ -74,11 +75,12 @@ def create_index():
         nodes=[],
         storage_context=storage_context,
         embed_model=get_embed_model(),
-        #transformations=[SentenceSplitter(chunk_size=700, chunk_overlap=100)],
-        show_progress=True
+        # transformations=[SentenceSplitter(chunk_size=700, chunk_overlap=100)],
+        show_progress=True,
     )
 
     return index, chroma_collection
+
 
 def process_documents(index, document_generator):
     batch = []
@@ -104,7 +106,7 @@ def process_documents(index, document_generator):
             logger.info(
                 "Progress: %s docs geïndexeerd. RAM: %.2f MB",
                 count,
-                process.memory_info().rss / 1024**2
+                process.memory_info().rss / 1024**2,
             )
 
     # laatste batch verwerken
@@ -114,23 +116,22 @@ def process_documents(index, document_generator):
         count += len(batch)
 
     return count
-        
+
+
 def build_index(document_generator):
     index, chroma_collection = create_index()
 
-    count =  process_documents(index, document_generator)
+    count = process_documents(index, document_generator)
 
     logger.info("Indexering klaar")
     logger.info("Totaal aantal chunks in vector store: %s", chroma_collection.count())
 
     return count
 
+
 def cleanup_temp_files():
-    temp_dirs = [
-        "./temp_sharepoint",
-        "./temp_onedrive"
-    ]
-    
+    temp_dirs = ["./temp_sharepoint", "./temp_onedrive"]
+
     for temp_dir in temp_dirs:
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)

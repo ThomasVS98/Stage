@@ -8,8 +8,9 @@ SIMILARITY_THRESHOLD = 0.65
 
 logger = get_logger(__name__)
 
+
 @observe(name="find_similar_ticket")
-def find_similar_ticket(data:dict):
+def find_similar_ticket(data: dict):
     query = f"""
     Probleem: {data.get("beschrijving")}
     Context: {data.get("context")}
@@ -20,19 +21,16 @@ def find_similar_ticket(data:dict):
     if index is None:
         logger.warning("Ticket index niet geladen")
         return None
-    
-    nodes = retrieve_nodes(index,query)
-    nodes = rerank_nodes(nodes,query,threshold=0.40)
-    
+
+    nodes = retrieve_nodes(index, query)
+    nodes = rerank_nodes(nodes, query, threshold=0.40)
+
     if not nodes:
         return None
-    
+
     best = nodes[0]
     logger.info("Beste score: %.3f", best.score)
-    
+
     if best.score >= SIMILARITY_THRESHOLD:
-        return {
-            "score": float(best.score),
-            "text": best.node.get_content()
-        }
+        return {"score": float(best.score), "text": best.node.get_content()}
     return None

@@ -10,6 +10,7 @@ from pathlib import Path
 
 logger = get_logger(__name__)
 
+
 def create_document_from_file(content: str, metadata: dict):
     if not content.strip():
         return None
@@ -17,10 +18,7 @@ def create_document_from_file(content: str, metadata: dict):
     clean_meta = metadata.copy()
     clean_meta.pop("download_url", None)
 
-    new_doc = Document(
-        text=content,
-        metadata=clean_meta
-    )
+    new_doc = Document(text=content, metadata=clean_meta)
 
     new_doc.metadata.setdefault("source_type", "file")
     new_doc.excluded_embed_metadata_keys = ["url", "download_url", "source_id"]
@@ -32,18 +30,23 @@ def create_document_from_file(content: str, metadata: dict):
 def process_file(file_path: str, filename: str) -> str:
     try:
         if filename.lower().endswith((".pdf", ".docx")):
-
-            with tempfile.NamedTemporaryFile(delete=False, mode="w+", encoding="utf-8") as tmp:
+            with tempfile.NamedTemporaryFile(
+                delete=False, mode="w+", encoding="utf-8"
+            ) as tmp:
                 tmp_path = tmp.name
 
-            worker_path = Path(__file__).resolve().parent.parent / "preprocessing" / "docling_worker.py"
+            worker_path = (
+                Path(__file__).resolve().parent.parent
+                / "preprocessing"
+                / "docling_worker.py"
+            )
             logger.info("Aanroepen worker: %s", worker_path)
             try:
                 subprocess.run(
                     [sys.executable, str(worker_path), str(file_path), str(tmp_path)],
                     check=True,
                     cwd=str(Path.cwd()),
-                    env = {**os.environ, "PYTHONPATH": str(Path.cwd())}
+                    env={**os.environ, "PYTHONPATH": str(Path.cwd())},
                 )
                 with open(tmp_path, "r", encoding="utf-8") as f:
                     full_content = f.read()
@@ -52,11 +55,12 @@ def process_file(file_path: str, filename: str) -> str:
                     try:
                         os.remove(tmp_path)
                     except OSError:
-                        logger.warning("Kon tijdelijk bestand niet verwijderen: %s", tmp_path)
-            #full_content = extract_with_docling(file_path)
+                        logger.warning(
+                            "Kon tijdelijk bestand niet verwijderen: %s", tmp_path
+                        )
+            # full_content = extract_with_docling(file_path)
             full_content = clean_markdown(full_content)
             full_content = clean_text(full_content)
-            
 
         else:
             reader = SimpleDirectoryReader(input_files=[file_path])

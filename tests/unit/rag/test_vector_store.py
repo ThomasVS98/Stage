@@ -1,25 +1,20 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from rag.vector_store import (
-    load_collection_index,
-    get_index,
-    reload_index
-)
+from rag.vector_store import load_collection_index, get_index, reload_index
 import rag.vector_store as vs
+
 
 @pytest.fixture(autouse=True)
 def reset_cache():
     vs.cache.clear()
+
 
 @patch("rag.vector_store.get_embed_model")
 @patch("rag.vector_store.VectorStoreIndex.from_vector_store")
 @patch("rag.vector_store.ChromaVectorStore")
 @patch("rag.vector_store.chromadb.PersistentClient")
 def test_load_collection_index_success(
-    mock_client_cls,
-    mock_vector_cls,
-    mock_index_cls,
-    mock_embed
+    mock_client_cls, mock_vector_cls, mock_index_cls, mock_embed
 ):
     mock_client = MagicMock()
     mock_collection = MagicMock()
@@ -41,6 +36,7 @@ def test_load_collection_index_success(
     assert result == mock_index
     mock_embed.assert_called_once()
 
+
 @patch("rag.vector_store.chromadb.PersistentClient")
 def test_load_collection_index_no_collection(mock_client_cls):
     mock_client = MagicMock()
@@ -51,6 +47,7 @@ def test_load_collection_index_no_collection(mock_client_cls):
     result = load_collection_index("docs")
 
     assert result is None
+
 
 @patch("rag.vector_store.load_collection_index")
 def test_get_index_caches_result(mock_load):
@@ -64,6 +61,7 @@ def test_get_index_caches_result(mock_load):
 
     mock_load.assert_called_once_with("docs")
 
+
 @patch("rag.vector_store.load_collection_index")
 def test_reload_index_updates_cache(mock_load):
     mock_load.return_value = "new_index"
@@ -71,7 +69,9 @@ def test_reload_index_updates_cache(mock_load):
     reload_index("docs")
 
     from rag.vector_store import cache
+
     assert cache["docs"] == "new_index"
+
 
 @patch("rag.vector_store.load_collection_index")
 def test_get_index_reload_if_none(mock_load):
@@ -83,5 +83,3 @@ def test_get_index_reload_if_none(mock_load):
     result = get_index("docs")
 
     assert result == "index"
-
-

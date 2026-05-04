@@ -1,6 +1,7 @@
 from rag.pipeline import run_rag
 from unittest.mock import patch
 
+
 @patch("rag.pipeline.get_index")
 def test_run_rag_no_index(mock_get_index):
     mock_get_index.return_value = None
@@ -10,6 +11,7 @@ def test_run_rag_no_index(mock_get_index):
     assert nodes is None
     assert answer is None
     assert context is None
+
 
 @patch("rag.pipeline.retrieve_nodes")
 @patch("rag.pipeline.get_index")
@@ -22,6 +24,7 @@ def test_run_rag_no_nodes(mock_get_index, mock_retrieve):
     assert nodes == []
     assert answer is None
     assert context is None
+
 
 @patch("rag.pipeline.rerank_nodes")
 @patch("rag.pipeline.retrieve_nodes")
@@ -37,6 +40,7 @@ def test_run_rag_no_valid_nodes(mock_get_index, mock_retrieve, mock_rerank):
     assert answer is None
     assert context is None
 
+
 @patch("rag.pipeline.get_llm")
 @patch("rag.pipeline.generate_answer")
 @patch("rag.pipeline.build_context")
@@ -49,9 +53,9 @@ def test_run_rag_success(
     mock_rerank,
     mock_build_context,
     mock_generate_answer,
-    mock_get_llm
+    mock_get_llm,
 ):
-    
+
     mock_get_index.return_value = "fake_index"
     mock_retrieve.return_value = ["node1"]
     mock_rerank.return_value = ["node1"]
@@ -60,21 +64,19 @@ def test_run_rag_success(
 
     mock_generate_answer.return_value = "Hello world"
 
-    nodes,answer, context = run_rag("test vraag")
+    nodes, answer, context = run_rag("test vraag")
 
     assert nodes == ["node1"]
     assert answer == "Hello world"
     assert context == "fake_context"
 
     mock_generate_answer.assert_called_once_with(
-        "fake_llm", 
-        "fake_context", 
-        "test vraag"
+        "fake_llm", "fake_context", "test vraag"
     )
+
 
 @patch("rag.pipeline.get_index")
 def test_run_rag_uses_custom_collection(mock_get_index):
     mock_get_index.return_value = None
     run_rag("vraag", collection="tickets")
     mock_get_index.assert_called_once_with("tickets")
-

@@ -7,6 +7,7 @@ from api.models.source_model import SourceModel
 router = APIRouter()
 logger = get_logger(__name__)
 
+
 @router.post("/ingest")
 async def trigger_ingest():
     logger.info("Ingestie verzoek ontvangen via API")
@@ -16,19 +17,18 @@ async def trigger_ingest():
         "status": "success",
         "docs_indexed": result["docs_indexed"],
         "tickets_indexed": result["tickets_indexed"],
-        "message": f"Succes! {result['docs_indexed']} documenten en {result['tickets_indexed']} tickets geïndexeerd."
+        "message": f"Succes! {result['docs_indexed']} documenten en {result['tickets_indexed']} tickets geïndexeerd.",
     }
-    
+
+
 @router.get("/sources")
 async def get_sources():
     return load_source_config(resolve=False)
+
 
 @router.post("/sources")
 async def update_sources(sources: list[SourceModel] = Body(...)):
     validated_sources = process_sources(sources)
     save_source_config(validated_sources)
 
-    return {
-        "status": "success",
-        "message": "Bronconfiguratie bijgewerkt."
-    }
+    return {"status": "success", "message": "Bronconfiguratie bijgewerkt."}

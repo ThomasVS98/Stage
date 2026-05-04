@@ -1,6 +1,7 @@
 from unittest.mock import patch, mock_open
 import sys
 
+
 @patch("builtins.open", new_callable=mock_open)
 @patch("ingestion.preprocessing.docling_worker.extract_with_docling")
 def test_docling_worker_main(mock_extract, mock_file):
@@ -8,6 +9,7 @@ def test_docling_worker_main(mock_extract, mock_file):
 
     with patch.object(sys, "argv", ["script.py", "input.pdf", "output.txt"]):
         from ingestion.preprocessing.docling_worker import main
+
         main()
 
     mock_extract.assert_called_once_with("input.pdf")

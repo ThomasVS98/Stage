@@ -9,6 +9,7 @@ logger = get_logger(__name__)
 
 _model = None
 
+
 def get_model():
     global _model
     if _model is None:
@@ -17,8 +18,9 @@ def get_model():
         )
     return _model
 
+
 @observe(name="is_relevant")
-def is_relevant(original_question:str, intake_data:dict, threshold: float = 0.5):
+def is_relevant(original_question: str, intake_data: dict, threshold: float = 0.5):
     combined = f"""
     Probleem: {intake_data.get("beschrijving") or ""}
     Context: {intake_data.get("context") or ""}
@@ -35,13 +37,14 @@ def is_relevant(original_question:str, intake_data:dict, threshold: float = 0.5)
 
     return score >= threshold
 
-def validate_answer(key: str, answer: str)->str:
+
+def validate_answer(key: str, answer: str) -> str:
     if not isinstance(answer, str):
         raise AppValidationError("Antwoord moet tekst zijn.")
-    
+
     answer = answer.strip()
 
-    answer = re.sub(r"<.*?>","",answer)
+    answer = re.sub(r"<.*?>", "", answer)
 
     answer = answer.strip()
 
@@ -61,4 +64,3 @@ def validate_answer(key: str, answer: str)->str:
             raise AppValidationError("Doel is te kort.")
 
     return answer
-

@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 from rag.retriever import retrieve_nodes
 
+
 def test_retrieve_nodes_calls_retriever():
     mock_index = MagicMock()
     mock_retriever = MagicMock()
@@ -12,12 +13,10 @@ def test_retrieve_nodes_calls_retriever():
 
     assert result == ["node1", "node2"]
 
-    mock_index.as_retriever.assert_called_once_with(
-        similarity_top_k=25,
-        filters=None
-    )
+    mock_index.as_retriever.assert_called_once_with(similarity_top_k=25, filters=None)
 
     mock_retriever.retrieve.assert_called_once_with("test query")
+
 
 def test_retrieve_nodes_returns_empty_list():
     mock_index = MagicMock()
@@ -29,4 +28,3 @@ def test_retrieve_nodes_returns_empty_list():
     result = retrieve_nodes(mock_index, "query")
 
     assert result == []
-

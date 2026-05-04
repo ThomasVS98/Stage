@@ -12,19 +12,17 @@ logger = get_logger(__name__)
 
 
 @observe(name="intake_start")
-def start(original_question:str):
+def start(original_question: str):
     session_id = str(uuid.uuid4())
     session_store.create(session_id)
 
     session_store.update(session_id, "original_question", original_question)
-    _ , question = INTAKE_QUESTIONS[0]
-    return{
-        "session_id": session_id,
-        "question": question
-    }
+    _, question = INTAKE_QUESTIONS[0]
+    return {"session_id": session_id, "question": question}
+
 
 @observe(name="intake_answer")
-def answer(payload:dict):
+def answer(payload: dict):
     session_id = payload.get("session_id")
     answer = payload.get("answer")
 
@@ -39,7 +37,7 @@ def answer(payload:dict):
 
     answer = validate_answer(key, answer)
     session_store.update(session_id, key, answer)
-    session = session_store.get(session_id) # session data vernieuwen na elke update
+    session = session_store.get(session_id)  # session data vernieuwen na elke update
     if step + 1 >= len(INTAKE_QUESTIONS):
         data = session["data"]
         original_question = session["data"].get("original_question")
@@ -51,7 +49,7 @@ def answer(payload:dict):
                 logger.info("Intake niet relevant voor sessie %s", session_id)
                 return {
                     "done": True,
-                    "error": "De gegeven antwoorden lijken niet overeen te komen met je oorspronkelijke vraag."
+                    "error": "De gegeven antwoorden lijken niet overeen te komen met je oorspronkelijke vraag.",
                 }
 
         logger.info("Intake data voor sessie %s: %s", session_id, data)
@@ -63,35 +61,29 @@ def answer(payload:dict):
 
         if match and match.get("text"):
             logger.info("Gelijkaardig ticket gevonden voor sessie %s", session_id)
-            return {
-                "done": True,
-                "data": data,
-                "similar_ticket": match
-            }
-        
+            return {"done": True, "data": data, "similar_ticket": match}
+
         try:
             ticket = create_incident(data)
         except ExternalServiceError:
             logger.exception("Fout bij aanmaken van ticket in sessie %s", session_id)
             raise
-        
-        logger.info("Nieuw ticket aangemaakt voor sessie %s: %s", session_id, ticket.get("number"))
+
+        logger.info(
+            "Nieuw ticket aangemaakt voor sessie %s: %s",
+            session_id,
+            ticket.get("number"),
+        )
 
         return {
             "done": True,
             "data": data,
-            "ticket": {
-                "number": ticket.get("number"),
-                "id": ticket.get("id")
-            }
+            "ticket": {"number": ticket.get("number"), "id": ticket.get("id")},
         }
     next_step = step + 1
     session_store.increment_step(session_id)
-    _ , next_question = INTAKE_QUESTIONS[next_step]
+    _, next_question = INTAKE_QUESTIONS[next_step]
 
     logger.info("Intake sessie %s naar stap %s", session_id, next_step)
 
-    return {
-        "done": False,
-        "question": next_question
-    }
+    return {"done": False, "question": next_question}

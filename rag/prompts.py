@@ -7,12 +7,15 @@ from utils.logging import get_logger
 VALID_INTENTS = ["SUPPORT", "ALGEMEEN", "IRRELEVANT"]
 logger = get_logger(__name__)
 
-def extract_json(text:str):
+
+def extract_json(text: str):
     matches = re.findall(r"\{.*?\}", text, re.DOTALL)
     return matches[0] if matches else None
 
+
 def is_valid_query(q: str) -> bool:
     return bool(re.search(r"[a-zA-Z]{3,}", q))
+
 
 def parse_llm_json(raw: str, fallback: dict):
     json_str = extract_json(raw)
@@ -22,10 +25,11 @@ def parse_llm_json(raw: str, fallback: dict):
             return json.loads(json_str)
         except Exception as e:
             logger.exception("Error occurred while parsing JSON: %s", e)
-    
+
     return fallback
 
-def detect_intent_prompt(query:str)->str:
+
+def detect_intent_prompt(query: str) -> str:
     return f"""
      Je bent een IT-dienst assistent voor de medewerkers van de Thomas More hogeschool
 
@@ -82,6 +86,7 @@ def detect_intent_prompt(query:str)->str:
     Vraag: {query}
     """
 
+
 def answer_system_prompt() -> str:
     return """Je bent een IT-assistent voor de medewerkers van de Thomas More hogeschool.
 
@@ -100,7 +105,8 @@ def answer_system_prompt() -> str:
             - Elk bullet point bevat exact één voorwaarde of regel
         """
 
-def answer_user_prompt(context:str, query:str)->str:
+
+def answer_user_prompt(context: str, query: str) -> str:
     return f"""
     Context:
     {context}
@@ -111,11 +117,12 @@ def answer_user_prompt(context:str, query:str)->str:
     Antwoord: 
     """
 
+
 @observe(name="detect_intent")
-def detect_intent(llm, query:str):
+def detect_intent(llm, query: str):
     if not is_valid_query(query):
         return "IRRELEVANT"
-    
+
     prompt = detect_intent_prompt(query)
     response = llm.complete(prompt)
     raw = response.text.strip()
@@ -125,7 +132,7 @@ def detect_intent(llm, query:str):
     if json_str:
         try:
             data = json.loads(json_str)
-            intent = data.get("intent","").upper()
+            intent = data.get("intent", "").upper()
             if intent in VALID_INTENTS:
                 logger.info("Gedetecteerde intent: %s", intent)
                 return intent
@@ -136,15 +143,16 @@ def detect_intent(llm, query:str):
     if raw_upper in VALID_INTENTS:
         logger.info("Gedetecteerde intent via fallback: %s", raw_upper)
         return raw_upper
-    
+
     logger.warning("Intent detection failed for output: %s", raw)
     return "ONBEKEND"
+
 
 @observe(name="generate_answer")
 def generate_answer(llm, context, query):
     messages = [
         ChatMessage(role="system", content=answer_system_prompt()),
-        ChatMessage(role="user", content=answer_user_prompt(context, query))
+        ChatMessage(role="user", content=answer_user_prompt(context, query)),
     ]
 
     response = llm.chat(messages)
@@ -194,12 +202,13 @@ def judge_system_prompt() -> str:
 
     """
 
+
 @observe(name="judge_answer")
 def judge_answer(llm, query: str, context: str, answer: str):
     messages = [
         ChatMessage(role="system", content=judge_system_prompt()),
         ChatMessage(
-            role="user", 
+            role="user",
             content=f"""
     Vraag:
     {query}
@@ -209,8 +218,8 @@ def judge_answer(llm, query: str, context: str, answer: str):
 
     Antwoord: 
     {answer}
-    """
-        )
+    """,
+        ),
     ]
 
     response = llm.chat(messages)
@@ -223,6 +232,6 @@ def judge_answer(llm, query: str, context: str, answer: str):
             "relevance": None,
             "usefulness": None,
             "uitleg": None,
-            "raw_output": raw
-        }
+            "raw_output": raw,
+        },
     )

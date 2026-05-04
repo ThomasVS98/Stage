@@ -37,19 +37,17 @@ if "adding_source" not in st.session_state:
 if "feedback_given" not in st.session_state:
     st.session_state.feedback_given = False
 
+
 def send_feedback(query, answer, score):
     try:
         requests.post(
             f"{settings.API_BASE_URL}/feedback",
-            json={
-                "query": query,
-                "answer": answer,
-                "score": score
-            },
-            timeout=2
+            json={"query": query, "answer": answer, "score": score},
+            timeout=2,
         )
     except Exception:
         pass
+
 
 tab_chat, tab_admin = st.tabs(["💬 Chat", "⚙️ Admin"])
 
@@ -67,11 +65,16 @@ with tab_chat:
         logger.info("Vraag ontvangen in Streamlit")
         with st.spinner("Bezig met het beantwoorden van de vraag..."):
             try:
-                response = requests.post(f'{settings.API_BASE_URL}/ask', json={"question": question})
+                response = requests.post(
+                    f"{settings.API_BASE_URL}/ask", json={"question": question}
+                )
                 data = response.json()
 
                 if data.get("action") == "INTAKE":
-                    res = requests.post(f"{settings.API_BASE_URL}/intake/start",json={"original_question": question})
+                    res = requests.post(
+                        f"{settings.API_BASE_URL}/intake/start",
+                        json={"original_question": question},
+                    )
                     intake_data = res.json()
                     st.session_state.mode = "intake"
                     st.session_state.intake_session_id = intake_data["session_id"]
@@ -93,19 +96,26 @@ with tab_chat:
         st.markdown(st.session_state.answer)
 
         st.markdown("#### Was dit antwoord nuttig?")
-        col = st.columns([4,2,4])[1]
+        col = st.columns([4, 2, 4])[1]
 
         with col:
-            left, right = st.columns([1,1], gap="small")
+            left, right = st.columns([1, 1], gap="small")
 
-            
-            if left.button("👍", key="feedback_up", disabled=st.session_state.feedback_given):
-                send_feedback(st.session_state.last_question, st.session_state.answer, "up")
+            if left.button(
+                "👍", key="feedback_up", disabled=st.session_state.feedback_given
+            ):
+                send_feedback(
+                    st.session_state.last_question, st.session_state.answer, "up"
+                )
                 st.session_state.feedback_given = True
                 st.rerun()
 
-            if right.button("👎", key="feedback_down", disabled=st.session_state.feedback_given):
-                send_feedback(st.session_state.last_question, st.session_state.answer, "down")
+            if right.button(
+                "👎", key="feedback_down", disabled=st.session_state.feedback_given
+            ):
+                send_feedback(
+                    st.session_state.last_question, st.session_state.answer, "down"
+                )
                 st.session_state.feedback_given = True
                 st.rerun()
 
@@ -128,7 +138,9 @@ with tab_chat:
         st.write(st.session_state.current_question)
 
         with st.form(key="intake_form"):
-            answer = st.text_input("Jouw antwoord", key=f"intake_input_{st.session_state.current_question}")
+            answer = st.text_input(
+                "Jouw antwoord", key=f"intake_input_{st.session_state.current_question}"
+            )
             intake_submitted = st.form_submit_button("Volgende")
 
         if intake_submitted:
@@ -137,7 +149,10 @@ with tab_chat:
             else:
                 res = requests.post(
                     f"{settings.API_BASE_URL}/intake/answer",
-                    json={"session_id": st.session_state.intake_session_id, "answer": answer}
+                    json={
+                        "session_id": st.session_state.intake_session_id,
+                        "answer": answer,
+                    },
                 )
                 if res.status_code != 200:
                     error = res.json().get("detail", "Onbekende fout")
@@ -157,20 +172,27 @@ with tab_chat:
                         st.success("Intake afgerond")
 
                         st.markdown("### Samenvatting van je aanvraag")
-                        st.write(f"**Probleem / aanvraag:** {data['data'].get('beschrijving')}")
+                        st.write(
+                            f"**Probleem / aanvraag:** {data['data'].get('beschrijving')}"
+                        )
                         st.write(f"**Context:** {data['data'].get('context')}")
                         st.write(f"**Doel:** {data['data'].get('doel')}")
 
                         if data.get("similar_ticket"):
-                            st.warning("Er bestaat momenteel al minstens 1 ticket dat mogelijk relevant is voor jouw aanvraag. Dit wordt dus momenteel al behandeld.")
+                            st.warning(
+                                "Er bestaat momenteel al minstens 1 ticket dat mogelijk relevant is voor jouw aanvraag. Dit wordt dus momenteel al behandeld."
+                            )
                         if data.get("ticket"):
                             st.success(
-                                    f"✅ Je ticket werd succesvol aangemaakt.\n\n"
-                                    f"**Ticketnummer:** {data['ticket']['number']}\n\n"
-                                    "De ICTS-dienst zal dit verder behandelen."
-                                )
+                                f"✅ Je ticket werd succesvol aangemaakt.\n\n"
+                                f"**Ticketnummer:** {data['ticket']['number']}\n\n"
+                                "De ICTS-dienst zal dit verder behandelen."
+                            )
                             # st.json(data["data"])
-                            logger.info("Intake afgerond, ticket aangemaakt: %s", data["ticket"]["number"])
+                            logger.info(
+                                "Intake afgerond, ticket aangemaakt: %s",
+                                data["ticket"]["number"],
+                            )
 
                         st.session_state.mode = "chat"
                         st.session_state.intake_session_id = None
@@ -181,6 +203,7 @@ with tab_chat:
 
 # Tab 2: Admin functies
 with tab_admin:
+
     def fetch_sources_to_state():
         """Haalt bronnen op van API en zet ze in de session state."""
         try:
@@ -196,7 +219,9 @@ with tab_admin:
 
     def save_all_sources(source_list, action_name="Wijzigingen"):
         try:
-            res = requests.post(f"{settings.API_BASE_URL}/sources", json=source_list, timeout=10)
+            res = requests.post(
+                f"{settings.API_BASE_URL}/sources", json=source_list, timeout=10
+            )
             if res.status_code == 200:
                 st.session_state.source_configs = source_list
                 st.toast(f"{action_name} succesvol doorgevoerd!", icon="💾")
@@ -211,7 +236,9 @@ with tab_admin:
                         loc = err.get("loc", [])
                         field = loc[-1] if loc else "onbekend"
                         msg = err.get("msg", "Ongeldig")
-                        friendly_error = f"Veld '{field}' is verplicht of bevat een fout: {msg}"
+                        friendly_error = (
+                            f"Veld '{field}' is verplicht of bevat een fout: {msg}"
+                        )
                     else:
                         friendly_error = error_data.get("detail", res.text)
                 except Exception:
@@ -219,7 +246,7 @@ with tab_admin:
 
                 st.error(f"Fout bij opslaan bronnen: {friendly_error}")
                 return False
-            
+
         except Exception as e:
             st.error(f"Verbindingsfout: {e}")
             logger.exception("Opslaan mislukt")
@@ -233,7 +260,7 @@ with tab_admin:
     @st.cache_data
     def get_loader_types():
         return get_available_loaders()
-    
+
     st.header("Admin Beheer")
 
     # Database synchronisatie
@@ -244,15 +271,19 @@ with tab_admin:
             try:
                 res = requests.post(f"{settings.API_BASE_URL}/ingest", timeout=600)
                 if res.status_code == 200:
-                    status_msg = res.json().get('message', 'Database succesvol bijgewerkt!')
+                    status_msg = res.json().get(
+                        "message", "Database succesvol bijgewerkt!"
+                    )
                     st.success(f"✅ {status_msg}")
                     logger.info("Database synchronisatie succesvol afgerond")
                     st.cache_resource.clear()
                 else:
-                    error_detail = res.json().get('detail', 'Onbekende fout')
+                    error_detail = res.json().get("detail", "Onbekende fout")
                     st.error(f"Fout: {error_detail}")
             except requests.exceptions.Timeout:
-                st.warning("⚠️ De server is nog bezig met indexeren, maar de verbinding met de interface is verbroken. Wacht een paar minuten en stel dan je vraag.")
+                st.warning(
+                    "⚠️ De server is nog bezig met indexeren, maar de verbinding met de interface is verbroken. Wacht een paar minuten en stel dan je vraag."
+                )
                 logger.warning("Timeout tijdens database synchronisatie")
             except Exception as e:
                 st.error(f"Verbindingsfout: {str(e)}")
@@ -271,7 +302,7 @@ with tab_admin:
     updated_sources = []
     for i, src in enumerate(sources):
         uid = src["id"]
-        with st.expander(f"Bron {i+1}: {src.get('type','nieuw')}"):
+        with st.expander(f"Bron {i + 1}: {src.get('type', 'nieuw')}"):
             available_types = get_loader_types()
 
             if not available_types:
@@ -280,8 +311,10 @@ with tab_admin:
             source_type = st.selectbox(
                 "Type",
                 options=available_types,
-                index=available_types.index(src["type"]) if src["type"] in available_types else 0,
-                key=f"type_{uid}"
+                index=available_types.index(src["type"])
+                if src["type"] in available_types
+                else 0,
+                key=f"type_{uid}",
             )
 
             type_key = f"type_state_{uid}"
@@ -302,14 +335,11 @@ with tab_admin:
                 config = src.get("config", {})
 
             enabled = st.checkbox(
-                "Enabled",
-                value=src.get("enabled",True),
-                key=f"enabled_{uid}"
+                "Enabled", value=src.get("enabled", True), key=f"enabled_{uid}"
             )
 
             schema = get_schema(source_type)
             new_config = {}
-
 
             for field, rules in schema.items():
                 field_type = rules.get("type")
@@ -321,7 +351,7 @@ with tab_admin:
 
                 if field_type == "bool":
                     default = bool(default) if default is not None else False
-                
+
                 elif field_type == "int":
                     try:
                         default = int(default)
@@ -332,50 +362,39 @@ with tab_admin:
                     st.session_state[key] = default
 
                 if field_type == "bool":
-                    st.checkbox(
-                        field,
-                        key=key
-                    )
+                    st.checkbox(field, key=key)
                 elif field_type == "int":
-                    st.number_input(
-                        field,
-                        key=key,
-                        step = 1,
-                        format = "%d"
-                    )
+                    st.number_input(field, key=key, step=1, format="%d")
                 else:
-                    st.text_input(
-                        field,
-                        key=key
-                    )
+                    st.text_input(field, key=key)
                 new_config[field] = st.session_state[key]
 
+            updated_sources.append(
+                {
+                    "id": uid,
+                    "type": source_type,
+                    "enabled": enabled,
+                    "config": new_config,
+                }
+            )
 
-            updated_sources.append({
-                "id": uid,
-                "type": source_type,
-                "enabled":enabled,
-                "config": new_config
-            })
-
-            if st.button(f"❌ Verwijder bron {i+1}", key=f"delete_{uid}"):
+            if st.button(f"❌ Verwijder bron {i + 1}", key=f"delete_{uid}"):
                 new_sources = [s for s in sources if s["id"] != uid]
 
                 if save_all_sources(new_sources, action_name="Verwijdering"):
                     st.rerun()
 
-            if st.button(f"💾 Opslaan bron {i+1}", key=f"save_{uid}"):
+            if st.button(f"💾 Opslaan bron {i + 1}", key=f"save_{uid}"):
                 new_sources = sources.copy()
                 new_sources[i] = {
                     "id": uid,
                     "type": source_type,
                     "enabled": enabled,
-                    "config": new_config
+                    "config": new_config,
                 }
 
                 if save_all_sources(new_sources, action_name="Wijziging"):
                     st.rerun()
-
 
     st.divider()
     if st.button("➕ Nieuwe bron toevoegen"):
@@ -386,11 +405,7 @@ with tab_admin:
 
         available_types = get_loader_types()
 
-        new_type = st.selectbox(
-            "Type",
-            options=available_types,
-            key="new_type"
-        )
+        new_type = st.selectbox("Type", options=available_types, key="new_type")
 
         schema = get_schema(new_type)
         new_config = {}
@@ -401,34 +416,18 @@ with tab_admin:
 
             default = rules.get("default")
             if field_type == "bool":
-                val = st.checkbox(
-                    field,
-                    value=bool(default),
-                    key=key
-                )
+                val = st.checkbox(field, value=bool(default), key=key)
             elif field_type == "int":
                 val = st.number_input(
-                    field,
-                    value=int(default or 0),
-                    step=1,
-                    format="%d",
-                    key=key
+                    field, value=int(default or 0), step=1, format="%d", key=key
                 )
             else:
-                val = st.text_input(
-                    field,
-                    value=str(default or ""),
-                    key=key
-                )
+                val = st.text_input(field, value=str(default or ""), key=key)
             new_config[field] = val
 
         enabled = st.checkbox("Enabled", value=True, key="new_enabled")
         if st.button("Toevoegen"):
-            new_source = {
-                "type": new_type,
-                "enabled": enabled,
-                "config": new_config
-            }
+            new_source = {"type": new_type, "enabled": enabled, "config": new_config}
 
             if save_all_sources(sources + [new_source], action_name="Toevoeging"):
                 st.session_state.adding_source = False
