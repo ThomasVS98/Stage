@@ -4,6 +4,7 @@ data
 storage
 debug*
 mock*
+feedback.jsonl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

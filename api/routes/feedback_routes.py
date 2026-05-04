@@ -1,13 +1,14 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from services.feedback_service import save_feedback
+from typing import Literal
 
 router = APIRouter()
 
 class FeedbackRequest(BaseModel):
     query: str
     answer: str
-    score: str
+    score: Literal["up", "down"]
 
 @router.post("/feedback")
 def submit_feedback(request: FeedbackRequest):
