@@ -3,6 +3,19 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
+    """
+    Centrale configuratie van de applicatie.
+
+    Leest instellingen uit omgevingsvariabelen (via een .env bestand) en
+    groepeert configuratie voor externe diensten en applicatiegedrag.
+
+    Bevat o.a.:
+    - SharePoint configuratie
+    - TOPdesk configuratie
+    - API instellingen
+    - Logging configuratie
+    """
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
@@ -24,7 +37,6 @@ class Settings(BaseSettings):
 
     # Server
     API_BASE_URL: str = "http://localhost:8000"
-    # API_BASE_URL: str
 
     LOG_LEVEL: str = "INFO"
 

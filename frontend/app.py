@@ -1,3 +1,14 @@
+"""
+Streamlit frontend voor de IT agent.
+
+Bevat:
+- Chat interface voor gebruikers om vragen te stellen.
+- Intakeflow voor eventuele ticketaanmaak bij de ICTS-dienst.
+- Admin interface voor het beheer van kennisbronnen alsook vector database synchronisatie.
+
+Communiceert met de FastAPI backend via HTTP endpoints.
+"""
+
 import os
 import time
 import requests
@@ -39,6 +50,14 @@ if "feedback_given" not in st.session_state:
 
 
 def send_feedback(query, answer, score):
+    """
+    Verstuurt gebruikersfeedback naar de backend.
+
+    Args:
+        query (str): De oorspronkelijke vraag van de gebruiker.
+        answer (str): Het gegenereerde antwoord van de LLM.
+        score (str): De feedbackscore ("up" of "down").
+    """
     try:
         requests.post(
             f"{settings.API_BASE_URL}/feedback",
@@ -205,7 +224,9 @@ with tab_chat:
 with tab_admin:
 
     def fetch_sources_to_state():
-        """Haalt bronnen op van API en zet ze in de session state."""
+        """
+        Haalt de bronconfiguratie op via de API en slaat deze op in de session state.
+        """
         try:
             res = requests.get(f"{settings.API_BASE_URL}/sources", timeout=10)
             res.raise_for_status()
@@ -218,6 +239,18 @@ with tab_admin:
         fetch_sources_to_state()
 
     def save_all_sources(source_list, action_name="Wijzigingen"):
+        """
+        Slaat bronconfiguratie op via de API en verwerkt eventuele validatiefouten.
+
+        Toont gebruiksvriendelijke foutmeldingen bij invalid input.
+
+        Args:
+            source_list (list): Lijst van de bronconfiguraties.
+            action_name (str, optional): Naam van de actie voor UI feedback.
+
+        Returns:
+            bool: True bij success, False bij fout.
+        """
         try:
             res = requests.post(
                 f"{settings.API_BASE_URL}/sources", json=source_list, timeout=10

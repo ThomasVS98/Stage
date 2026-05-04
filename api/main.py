@@ -26,6 +26,15 @@ langfuse = get_client()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Beheert de levenscyclus van de applicatie.
+
+    Zorgt ervoor dat resources correct worden afgesloten bij shutdown,
+    waaronder de executor die gebruikt wordt voor asynchrone LLM-evaluatie.
+
+    Args:
+        app (FastAPI): De FastAPI applicatie.
+    """
     yield
     executor.shutdown(wait=False)
 
@@ -35,6 +44,9 @@ app = FastAPI(lifespan=lifespan)
 
 @app.exception_handler(AppValidationError)
 async def validation_exception_handler(request: Request, exc: AppValidationError):
+    """
+    Verwerkt validatiefouten binnen de applicatie.
+    """
     return JSONResponse(
         status_code=400, content={"detail": f"Validatiefout: {str(exc)}"}
     )
@@ -42,6 +54,9 @@ async def validation_exception_handler(request: Request, exc: AppValidationError
 
 @app.exception_handler(SourceConfigError)
 async def source_config_exception_handler(request: Request, exc: SourceConfigError):
+    """
+    Verwerkt fouten in de bronconfiguratie.
+    """
     return JSONResponse(status_code=400, content={"detail": f"Bron fout: {str(exc)}"})
 
 
@@ -49,6 +64,9 @@ async def source_config_exception_handler(request: Request, exc: SourceConfigErr
 async def external_service_exception_handler(
     request: Request, exc: ExternalServiceError
 ):
+    """
+    Verwerkt fouten afkomstig van externe diensten.
+    """
     return JSONResponse(
         status_code=502, content={"detail": f"Fout bij externe dienst: {str(exc)}"}
     )
@@ -56,6 +74,9 @@ async def external_service_exception_handler(
 
 @app.exception_handler(IngestionError)
 async def ingestion_exception_handler(request: Request, exc: IngestionError):
+    """
+    Verwerkt fouten tijdens de ingestie.
+    """
     return JSONResponse(
         status_code=500, content={"detail": f"Ingestie fout: {str(exc)}"}
     )
@@ -68,5 +89,11 @@ app.include_router(feedback_router)
 
 
 @app.get("/")
-def root():
+def root() -> dict:
+    """
+    Health check endpoint.
+
+    Returns:
+        dict: Bevestigt dat de API actief is.
+    """
     return {"message": "RAG API running"}

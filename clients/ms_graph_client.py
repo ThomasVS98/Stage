@@ -9,7 +9,19 @@ logger = get_logger(__name__)
 _token_cache = {"access_token": None, "expires_at": 0}
 
 
-def get_graph_headers():
+def get_graph_headers() -> dict:
+    """
+    Haalt geldige Microsoft Graph API headers op met een bearer token.
+
+    Gebruikt caching om het access token te hergebruiken zolang het niet verlopen is.
+    Indien nodig wordt een nieuw token opgehaald via client credentials.
+
+    Returns:
+        dict: HTTP headers met Authorization bearer token.
+
+    Raises:
+        ExternalServiceError: Bij ontbrekende configuratie of mislukte token aanvraag.
+    """
     global _token_cache
 
     if _token_cache["access_token"] and time.time() < _token_cache["expires_at"] - 60:
@@ -58,7 +70,21 @@ def get_graph_headers():
     return {"Authorization": f"Bearer {access_token}"}
 
 
-def graph_get(url):
+def graph_get(url: str) -> requests.Response:
+    """
+    Voert een GET-request uit naar de Microsoft Graph API.
+
+    Probeert automatisch het access token te vernieuwen bij een 401-response.
+
+    Args:
+        url (str): De volledige Graph API endpoint URL.
+
+    Returns:
+        requests.Response: De HTTP response van de API.
+
+    Raises:
+        ExternalServiceError: Bij fouten na token refresh of mislukte requests.
+    """
     global _token_cache
 
     headers = get_graph_headers()
