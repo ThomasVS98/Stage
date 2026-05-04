@@ -71,7 +71,7 @@ def run_judge_async(llm, query, context, answer_text):
 def answer(query: str, debug: bool = True):
 
     logger.info("Ontvangen vraag: %s", query)
-    nodes, answer_text, context = run_rag(query,debug=debug, include_context=True)
+    nodes, answer_text, context = run_rag(query,debug=debug)
 
     if nodes is None:
         return {
