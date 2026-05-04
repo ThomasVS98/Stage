@@ -39,6 +39,7 @@ def test_load_collection_index_success(
     result = load_collection_index("docs")
 
     assert result == mock_index
+    mock_embed.assert_called_once()
 
 @patch("rag.vector_store.chromadb.PersistentClient")
 def test_load_collection_index_no_collection(mock_client_cls):
@@ -82,3 +83,5 @@ def test_get_index_reload_if_none(mock_load):
     result = get_index("docs")
 
     assert result == "index"
+
+

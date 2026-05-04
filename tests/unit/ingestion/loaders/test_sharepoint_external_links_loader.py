@@ -27,7 +27,7 @@ def test_bad_paths_blocked():
     assert is_valid_external("https://example.com/login") is False
 
 def test_block_sharepoint():
-    assert is_valid_external("https//tenant.sharepoint.com/page") is False
+    assert is_valid_external("https://tenant.sharepoint.com/page") is False
 
 def test_block_microsoftonline():
     assert is_valid_external("https://login.microsoftonline.com") is False

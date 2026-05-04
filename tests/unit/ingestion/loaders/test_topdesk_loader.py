@@ -10,11 +10,11 @@ from unittest.mock import patch, MagicMock
 from config.settings import settings
 
 @patch("ingestion.loaders.topdesk_loader.requests.get")
-def test_fetch_topdesk_knowledge_items_pagination(mock_get):
+def test_fetch_topdesk_knowledge_items_pagination(mock_get, monkeypatch):
     """Test of de loader correct de volgende link volgt bij meerdere pagina's."""
-    settings.TOPDESK_BASE_URL = "https://example.topdesk.net"
-    settings.TOPDESK_USER = "user"
-    settings.TOPDESK_SECRET = "secret"
+    monkeypatch.setattr(settings, "TOPDESK_BASE_URL", "https://example.topdesk.net")
+    monkeypatch.setattr(settings, "TOPDESK_USER", "user")
+    monkeypatch.setattr(settings, "TOPDESK_SECRET", "secret")
 
     res1 = MagicMock()
     res1.json.return_value = {
@@ -185,10 +185,10 @@ def test_html_to_markdown_empty_input():
     assert html_to_markdown(None) == ""
 
 @patch("ingestion.loaders.topdesk_loader.requests.get")
-def test_fetch_topdesk_skips_empty_items(mock_get):
-    settings.TOPDESK_BASE_URL = "https://example.topdesk.net"
-    settings.TOPDESK_USER = "user"
-    settings.TOPDESK_SECRET = "secret"
+def test_fetch_topdesk_skips_empty_items(mock_get, monkeypatch):
+    monkeypatch.setattr(settings, "TOPDESK_BASE_URL", "https://example.topdesk.net")
+    monkeypatch.setattr(settings, "TOPDESK_USER", "user")
+    monkeypatch.setattr(settings, "TOPDESK_SECRET", "secret")
 
     res = MagicMock()
     res.json.return_value = {
@@ -208,10 +208,10 @@ def test_fetch_topdesk_skips_empty_items(mock_get):
     assert len(docs) == 1
     assert docs[0].metadata["source_id"] == "2"
 
-def test_fetch_topdesk_missing_config(caplog):
-    settings.TOPDESK_BASE_URL = None
-    settings.TOPDESK_USER = None
-    settings.TOPDESK_SECRET = None
+def test_fetch_topdesk_missing_config(monkeypatch,caplog):
+    monkeypatch.setattr(settings, "TOPDESK_BASE_URL", None)
+    monkeypatch.setattr(settings, "TOPDESK_USER", None)
+    monkeypatch.setattr(settings, "TOPDESK_SECRET", None)
 
     result = list(fetch_topdesk_knowledge_items() or [])
 
@@ -219,10 +219,10 @@ def test_fetch_topdesk_missing_config(caplog):
     assert "configuratie ontbreekt" in caplog.text.lower()
 
 @patch("ingestion.loaders.topdesk_loader.requests.get")
-def test_fetch_topdesk_incidents_basic(mock_get):
-    settings.TOPDESK_BASE_URL = "https://example.topdesk.net"
-    settings.TOPDESK_USER = "user"
-    settings.TOPDESK_SECRET = "secret"
+def test_fetch_topdesk_incidents_basic(mock_get, monkeypatch):
+    monkeypatch.setattr(settings, "TOPDESK_BASE_URL", "https://example.topdesk.net")
+    monkeypatch.setattr(settings, "TOPDESK_USER", "user")
+    monkeypatch.setattr(settings, "TOPDESK_SECRET", "secret")
 
     res = MagicMock()
     res.json.return_value = [
@@ -240,10 +240,10 @@ def test_fetch_topdesk_incidents_basic(mock_get):
     assert result[0]["id"] == "1"
 
 @patch("ingestion.loaders.topdesk_loader.requests.get")
-def test_fetch_topdesk_incidents_respects_limit(mock_get):
-    settings.TOPDESK_BASE_URL = "https://example.topdesk.net"
-    settings.TOPDESK_USER = "user"
-    settings.TOPDESK_SECRET = "secret"
+def test_fetch_topdesk_incidents_respects_limit(mock_get, monkeypatch):
+    monkeypatch.setattr(settings, "TOPDESK_BASE_URL", "https://example.topdesk.net")
+    monkeypatch.setattr(settings, "TOPDESK_USER", "user")
+    monkeypatch.setattr(settings, "TOPDESK_SECRET", "secret")
 
     res = MagicMock()
     res.json.return_value = [{"id": str(i)} for i in range(50)]
@@ -274,5 +274,14 @@ def test_load_topdesk_source_exception(mock_fetch, caplog):
 
     assert len(docs) == 0
     assert "Fout bij ophalen van TOPdesk data: fail" in caplog.text
+
+def test_load_topdesk_source_no_config(monkeypatch):
+    monkeypatch.setattr(settings, "TOPDESK_BASE_URL", None)
+    monkeypatch.setattr(settings, "TOPDESK_USER", None)
+    monkeypatch.setattr(settings, "TOPDESK_SECRET", None)
+
+    docs = list(load_topdesk_source({"include_kb": True}))
+
+    assert docs == []
 
 

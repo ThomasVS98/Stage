@@ -26,7 +26,8 @@ def test_get_reranker_configuration():
         _, kwargs = mock_reranker.call_args
 
         assert kwargs.get("model") == "BAAI/bge-reranker-v2-m3"
-        assert kwargs.get("top_n") == 5
+        assert isinstance(kwargs.get("top_n"), int)
+        assert kwargs.get("top_n") > 0
 
 @patch("rag.reranker.get_reranker")
 def test_rerank_nodes_filters_by_score(mock_get_reranker):

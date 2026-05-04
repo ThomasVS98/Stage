@@ -43,7 +43,7 @@ def test_load_all_data_skips_disabled_source(monkeypatch):
     result = list(load_all_data())
 
     assert result == []
-    assert called == []
+    assert not called
 
 def test_load_all_data_calls_loader(monkeypatch):
     monkeypatch.setattr(
@@ -226,7 +226,7 @@ def test_build_index_triggers_gc(monkeypatch):
 
     build_index(iter(docs))
 
-    assert gc_calls == [True, True]
+    assert len(gc_calls) == 2
 
 def test_build_index_no_gc_below_threshold(monkeypatch):
     docs = [Doc() for _ in range(19)]

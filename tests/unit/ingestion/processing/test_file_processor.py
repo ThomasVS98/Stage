@@ -1,5 +1,6 @@
 from ingestion.processing.file_processor import create_document_from_file, process_file
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
+import sys
 
 def test_create_document_from_file_basic():
     content= "Test content"
@@ -44,21 +45,27 @@ def test_process_file_non_pdf(mock_reader):
 
     assert "File content" in result
 
-@patch("ingestion.processing.file_processor.clean_text")
-@patch("ingestion.processing.file_processor.clean_markdown")
 @patch("ingestion.processing.file_processor.subprocess.run")
-def test_process_file_pdf_uses_docling_worker_and_cleaning(mock_run, mock_clean_md, mock_clean_text):
+@patch("ingestion.processing.file_processor.clean_markdown")
+@patch("ingestion.processing.file_processor.clean_text")
+def test_process_file_pdf_uses_docling_worker_and_cleaning(mock_clean_text, mock_clean_md, mock_run):
 
     mock_clean_md.return_value = "raw content"
     mock_clean_text.return_value = "clean content"
 
-    with patch("builtins.open", create= True) as mock_open:
-        mock_open.return_value.__enter__.return_value.read.return_value = "raw content"
-
+    with patch("builtins.open", mock_open(read_data="raw content")):
         result = process_file("file.pdf", "file.pdf")
 
+
     assert result == "clean content"
+    
     mock_run.assert_called_once()
+
+    args = mock_run.call_args[0][0]
+
+    assert sys.executable in args[0]
+    assert "docling_worker.py" in args[1]
+    assert "file.pdf" in args[2]
 
 @patch("ingestion.processing.file_processor.SimpleDirectoryReader")
 def test_process_file_exception(mock_reader):
@@ -72,14 +79,16 @@ def test_process_file_exception(mock_reader):
 @patch("ingestion.processing.file_processor.clean_markdown")
 @patch("ingestion.processing.file_processor.clean_text")
 def test_process_file_docx_uses_subprocess(mock_clean_text, mock_clean_md, mock_run):
-    with patch("builtins.open", create=True) as mock_open:
-        mock_open.return_value.__enter__.return_value.read.return_value = "docx content"
-        
+    with patch("builtins.open", mock_open(read_data="docx content")):
         process_file("test.docx", "test.docx")
     
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert any("python" in str(arg).lower() for arg in args)
+    args = mock_run.call_args[0][0]
+
+    assert sys.executable in args[0]
+    assert "docling_worker.py" in args[1]
+    assert "test.docx" in args[2]
+        
+
 
 @patch("ingestion.processing.file_processor.tempfile.NamedTemporaryFile")
 @patch("ingestion.processing.file_processor.os.path.exists")
@@ -95,6 +104,7 @@ def test_process_file_cleanup_on_failure(mock_run, mock_remove, mock_exists, moc
     
     process_file("file.pdf", "file.pdf")
     
+    mock_exists.assert_called_once()
     mock_remove.assert_called_once_with("/temp/tempfile.pdf")
 
 @patch("ingestion.processing.file_processor.SimpleDirectoryReader")
