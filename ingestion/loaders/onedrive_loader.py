@@ -7,14 +7,19 @@ from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 def fetch_onedrive_files(user_id: str):
     url = f"https://graph.microsoft.com/v1.0/users/{user_id}/drive/root/children"
     res = graph_get(url)
 
     if res.status_code != 200:
-        logger.warning("Fout bij ophalen OneDrive bestanden: %s | %s", res.status_code, res.text[:300])
+        logger.warning(
+            "Fout bij ophalen OneDrive bestanden: %s | %s",
+            res.status_code,
+            res.text[:300],
+        )
         return []
-    
+
     items = res.json().get("value", [])
 
     files = []
@@ -23,20 +28,26 @@ def fetch_onedrive_files(user_id: str):
         if "file" in item:
             name = item.get("name")
 
-            files.append({
-                "id": item.get("id"),
-                "name": name,
-                "download_url": item.get("@microsoft.graph.downloadUrl"),
-            })
+            files.append(
+                {
+                    "id": item.get("id"),
+                    "name": name,
+                    "download_url": item.get("@microsoft.graph.downloadUrl"),
+                }
+            )
             logger.info("OneDrive bestand gevonden: %s", name)
 
     return files
 
-@register_loader("onedrive", schema={
-    "user_id": {"type": "string", "required": True},
-    "label": {"type": "string", "required": False}
-})
-def load_onedrive_source(config:dict):
+
+@register_loader(
+    "onedrive",
+    schema={
+        "user_id": {"type": "string", "required": True},
+        "label": {"type": "string", "required": False},
+    },
+)
+def load_onedrive_source(config: dict):
     """
     Basis OneDrive loader
     """
@@ -49,7 +60,7 @@ def load_onedrive_source(config:dict):
     if not user_id:
         logger.warning("Geen user_id opgegeven voor OneDrive")
         return
-    
+
     files = fetch_onedrive_files(user_id)
 
     temp_dir = "./temp_onedrive"
@@ -96,11 +107,10 @@ def load_onedrive_source(config:dict):
             "source_type": "onedrive_file",
             "source_id": f["id"],
             "title": filename,
-            "filename": filename
+            "filename": filename,
         }
 
         doc = create_document_from_file(content, metadata)
 
         if doc:
             yield doc
-    

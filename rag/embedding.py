@@ -6,6 +6,7 @@ logger = get_logger(__name__)
 
 _embed_model = None
 
+
 def get_embed_model():
     global _embed_model
     if _embed_model is None:
@@ -16,6 +17,6 @@ def get_embed_model():
         _embed_model = HuggingFaceEmbedding(
             model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
             normalize=True,
-            device=device
+            device=device,
         )
     return _embed_model

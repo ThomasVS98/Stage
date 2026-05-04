@@ -3,22 +3,26 @@ from services.admin_service import (
     get_folder_size,
     run_full_ingestion,
     process_sources,
-    validate_source 
+    validate_source,
 )
 from unittest.mock import patch
 from utils.exceptions import SourceConfigError, ExternalServiceError, IngestionError
 
+
 def test_get_folder_size(monkeypatch):
     files = [
-        ("/dir", [], ["a.text", "b.text"]), 
+        ("/dir", [], ["a.text", "b.text"]),
     ]
 
     monkeypatch.setattr("services.admin_service.os.walk", lambda path: files)
-    monkeypatch.setattr("services.admin_service.os.path.getsize", lambda path: 1024 * 1024)
+    monkeypatch.setattr(
+        "services.admin_service.os.path.getsize", lambda path: 1024 * 1024
+    )
 
     size = get_folder_size("dummy")
 
     assert size == 2
+
 
 def test_validate_source_valid(monkeypatch):
     class FakeSource:
@@ -26,17 +30,14 @@ def test_validate_source_valid(monkeypatch):
             self.id = "1"
             self.type = "topdesk"
             self.enabled = True
-            self.config = {
-                "include_kb": True,
-                "incident_limit": 100
-            }
+            self.config = {"include_kb": True, "incident_limit": 100}
 
     monkeypatch.setattr(
         "services.admin_service.get_schema",
         lambda _: {
             "include_kb": {"type": "bool", "default": True},
-            "incident_limit": {"type": "int", "default": 200}
-        }
+            "incident_limit": {"type": "int", "default": 200},
+        },
     )
 
     result = validate_source(FakeSource())
@@ -44,25 +45,23 @@ def test_validate_source_valid(monkeypatch):
     assert result["config"]["include_kb"] is True
     assert result["config"]["incident_limit"] == 100
 
+
 def test_validate_source_unknown_field(monkeypatch):
     class FakeSource:
         def __init__(self):
             self.id = "1"
             self.type = "topdesk"
             self.enabled = True
-            self.config = {
-                "unknown_field": "value"
-            }
+            self.config = {"unknown_field": "value"}
 
     monkeypatch.setattr(
         "services.admin_service.get_schema",
-        lambda _: {
-            "include_kb": {"type": "bool", "default": True}
-        }
+        lambda _: {"include_kb": {"type": "bool", "default": True}},
     )
 
     with pytest.raises(SourceConfigError, match="Onbekend veld"):
         validate_source(FakeSource())
+
 
 def test_validate_source_required_field(monkeypatch):
     class FakeSource:
@@ -70,18 +69,16 @@ def test_validate_source_required_field(monkeypatch):
             self.id = "1"
             self.type = "topdesk"
             self.enabled = True
-            self.config = {
-                "include_kb": None
-            }
+            self.config = {"include_kb": None}
+
     monkeypatch.setattr(
         "services.admin_service.get_schema",
-        lambda _: {
-            "include_kb": {"type": "bool", "required": True}
-        }
+        lambda _: {"include_kb": {"type": "bool", "required": True}},
     )
 
     with pytest.raises(SourceConfigError, match="is verplicht"):
         validate_source(FakeSource())
+
 
 def test_validate_source_bool_parsing(monkeypatch):
     class FakeSource:
@@ -89,15 +86,11 @@ def test_validate_source_bool_parsing(monkeypatch):
             self.id = "1"
             self.type = "topdesk"
             self.enabled = True
-            self.config = {
-                "include_kb": value
-            }
+            self.config = {"include_kb": value}
 
     monkeypatch.setattr(
         "services.admin_service.get_schema",
-        lambda _: {
-            "include_kb": {"type": "bool", "default": True}
-        }
+        lambda _: {"include_kb": {"type": "bool", "default": True}},
     )
 
     assert validate_source(FakeSource("true"))["config"]["include_kb"] is True
@@ -108,6 +101,7 @@ def test_validate_source_bool_parsing(monkeypatch):
     assert validate_source(FakeSource("0"))["config"]["include_kb"] is False
     assert validate_source(FakeSource("no"))["config"]["include_kb"] is False
 
+
 def test_validate_source_invalid_bool(monkeypatch):
     from utils.exceptions import SourceConfigError
 
@@ -116,19 +110,16 @@ def test_validate_source_invalid_bool(monkeypatch):
             self.id = "1"
             self.type = "topdesk"
             self.enabled = True
-            self.config = {
-                "include_kb": "notabool"
-            }
+            self.config = {"include_kb": "notabool"}
 
     monkeypatch.setattr(
         "services.admin_service.get_schema",
-        lambda _: {
-            "include_kb": {"type": "bool", "default": True}
-        }
+        lambda _: {"include_kb": {"type": "bool", "default": True}},
     )
 
     with pytest.raises(SourceConfigError, match="type bool"):
         validate_source(FakeSource())
+
 
 def test_process_sources_adds_id(monkeypatch):
     class FakeSource:
@@ -144,13 +135,14 @@ def test_process_sources_adds_id(monkeypatch):
             "id": src.id,
             "type": src.type,
             "enabled": src.enabled,
-            "config": {}
-        }
+            "config": {},
+        },
     )
 
     result = process_sources([FakeSource()])
 
     assert result[0]["id"] is not None
+
 
 @patch("services.admin_service.reload_index")
 @patch("services.admin_service.cleanup_temp_files")
@@ -166,7 +158,7 @@ def test_run_full_ingestion_success(
     mock_build,
     mock_ticket,
     mock_cleanup,
-    mock_reload
+    mock_reload,
 ):
     mock_load.return_value = ["doc1", "doc2"]
     mock_build.return_value = 2
@@ -184,6 +176,7 @@ def test_run_full_ingestion_success(
     mock_ticket.assert_called_once_with(limit=50)
     assert mock_reload.call_count == 2
 
+
 @patch("services.admin_service.load_all_data")
 def test_run_full_ingestion_external_error(mock_load):
 
@@ -191,6 +184,7 @@ def test_run_full_ingestion_external_error(mock_load):
 
     with pytest.raises(IngestionError, match="fail"):
         run_full_ingestion()
+
 
 @patch("services.admin_service.reload_index")
 @patch("services.admin_service.cleanup_temp_files")
@@ -206,6 +200,7 @@ def test_run_full_ingestion_no_docs(
 
     assert result["docs_indexed"] == 0
 
+
 @patch("services.admin_service.load_all_data")
 def test_run_full_ingestion_ingestion_error_passthrough(mock_load):
 
@@ -213,6 +208,7 @@ def test_run_full_ingestion_ingestion_error_passthrough(mock_load):
 
     with pytest.raises(IngestionError):
         run_full_ingestion()
+
 
 def test_validate_source_invalid_int(monkeypatch):
     from utils.exceptions import SourceConfigError
@@ -225,14 +221,12 @@ def test_validate_source_invalid_int(monkeypatch):
             self.config = {"limit": "notanint"}
 
     monkeypatch.setattr(
-        "services.admin_service.get_schema",
-        lambda _: {
-            "limit": {"type": "int"}
-        }
+        "services.admin_service.get_schema", lambda _: {"limit": {"type": "int"}}
     )
 
     with pytest.raises(SourceConfigError):
         validate_source(FakeSource())
+
 
 def test_validate_source_string_cast(monkeypatch):
     class FakeSource:
@@ -243,15 +237,13 @@ def test_validate_source_string_cast(monkeypatch):
             self.config = {"name": 123}
 
     monkeypatch.setattr(
-        "services.admin_service.get_schema",
-        lambda _: {
-            "name": {"type": "str"}
-        }
+        "services.admin_service.get_schema", lambda _: {"name": {"type": "str"}}
     )
 
     result = validate_source(FakeSource())
 
     assert result["config"]["name"] == "123"
+
 
 def test_validate_source_unknown_type(monkeypatch):
     from utils.exceptions import SourceConfigError
@@ -263,13 +255,11 @@ def test_validate_source_unknown_type(monkeypatch):
             self.enabled = True
             self.config = {}
 
-    monkeypatch.setattr(
-        "services.admin_service.get_schema",
-        lambda _: None
-    )
+    monkeypatch.setattr("services.admin_service.get_schema", lambda _: None)
 
     with pytest.raises(SourceConfigError, match="Onbekend bron type"):
         validate_source(FakeSource())
+
 
 @patch("services.admin_service.load_all_data")
 def test_run_full_ingestion_generic_exception(mock_load):
@@ -279,26 +269,24 @@ def test_run_full_ingestion_generic_exception(mock_load):
     with pytest.raises(IngestionError, match="boom"):
         run_full_ingestion()
 
+
 def test_validate_source_default_value(monkeypatch):
     class FakeSource:
         def __init__(self):
             self.id = "1"
             self.type = "topdesk"
             self.enabled = True
-            self.config = {
-                "include_kb": None
-            }
+            self.config = {"include_kb": None}
 
     monkeypatch.setattr(
         "services.admin_service.get_schema",
-        lambda _: {
-            "include_kb": {"type": "bool", "default": True}
-        }
+        lambda _: {"include_kb": {"type": "bool", "default": True}},
     )
 
     result = validate_source(FakeSource())
 
     assert result["config"]["include_kb"] is True
+
 
 def test_validate_source_bool_fallback(monkeypatch):
     class FakeSource:
@@ -311,13 +299,9 @@ def test_validate_source_bool_fallback(monkeypatch):
             }
 
     monkeypatch.setattr(
-        "services.admin_service.get_schema",
-        lambda _: {
-            "include_kb": {"type": "bool"}
-        }
+        "services.admin_service.get_schema", lambda _: {"include_kb": {"type": "bool"}}
     )
 
     result = validate_source(FakeSource())
 
     assert result["config"]["include_kb"] is True
-

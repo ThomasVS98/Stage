@@ -1,5 +1,6 @@
 from stores.session_store import SessionStore
 
+
 def test_session_create_and_get():
     store = SessionStore()
     store.create("session1")
@@ -9,6 +10,7 @@ def test_session_create_and_get():
     assert session is not None
     assert session["step"] == 0
     assert session["data"] == {}
+
 
 def test_session_update_and_increment():
     from stores.session_store import SessionStore
@@ -24,6 +26,7 @@ def test_session_update_and_increment():
     assert session["data"]["key"] == "value"
     assert session["step"] == 1
 
+
 def test_session_update_nonexistent():
     from stores.session_store import SessionStore
 
@@ -33,4 +36,3 @@ def test_session_update_nonexistent():
     store.increment_step("unknown")
 
     assert store.get("unknown") is None
-

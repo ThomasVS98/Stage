@@ -3,9 +3,10 @@ from unittest.mock import patch, MagicMock
 from ingestion.ingest_tickets import (
     create_ticket_index,
     build_ticket_index,
-    fetch_ticket_documents
+    fetch_ticket_documents,
 )
 from utils.exceptions import ExternalServiceError
+
 
 @patch("ingestion.ingest_tickets.incidents_to_documents")
 @patch("ingestion.ingest_tickets.fetch_topdesk_incidents")
@@ -19,6 +20,7 @@ def test_fetch_ticket_documents(mock_fetch, mock_transform):
     mock_transform.assert_called_once_with(["incident1", "incident2"])
     assert result == ["doc1", "doc2", "doc3"]
 
+
 @patch("ingestion.ingest_tickets.fetch_topdesk_incidents")
 def test_fetch_ticket_documents_raises(mock_fetch):
     mock_fetch.side_effect = ExternalServiceError("fail")
@@ -26,15 +28,13 @@ def test_fetch_ticket_documents_raises(mock_fetch):
     with pytest.raises(ExternalServiceError):
         fetch_ticket_documents()
 
+
 @patch("ingestion.ingest_tickets.VectorStoreIndex")
 @patch("ingestion.ingest_tickets.get_embed_model")
 @patch("ingestion.ingest_tickets.SentenceSplitter")
 @patch("ingestion.ingest_tickets.chromadb.PersistentClient")
 def test_create_ticket_index_success(
-    mock_chroma_client,
-    mock_splitter,
-    mock_embed,
-    mock_index_class
+    mock_chroma_client, mock_splitter, mock_embed, mock_index_class
 ):
     mock_collection = MagicMock()
 
@@ -55,6 +55,7 @@ def test_create_ticket_index_success(
 
     assert index == mock_index_instance
     assert collection == mock_collection
+
 
 @patch("ingestion.ingest_tickets.VectorStoreIndex")
 @patch("ingestion.ingest_tickets.get_embed_model")
@@ -80,12 +81,10 @@ def test_create_ticket_index_delete_fails(
     mock_client_instance.get_or_create_collection.assert_called_once()
     assert collection == mock_collection
 
+
 @patch("ingestion.ingest_tickets.create_ticket_index")
 @patch("ingestion.ingest_tickets.fetch_ticket_documents")
-def test_build_ticket_index_success(
-    mock_fetch,
-    mock_create
-):
+def test_build_ticket_index_success(mock_fetch, mock_create):
     mock_docs = ["doc1", "doc2"]
     mock_fetch.return_value = mock_docs
 
@@ -94,9 +93,7 @@ def test_build_ticket_index_success(
     mock_create.return_value = (mock_index, mock_collection)
 
     mock_splitter = type(
-        "MockSplitter",
-        (),
-        {"get_nodes_from_documents": lambda self, docs: docs}
+        "MockSplitter", (), {"get_nodes_from_documents": lambda self, docs: docs}
     )()
 
     with patch("ingestion.ingest_tickets.SentenceSplitter", return_value=mock_splitter):
@@ -111,10 +108,7 @@ def test_build_ticket_index_success(
 
 @patch("ingestion.ingest_tickets.create_ticket_index")
 @patch("ingestion.ingest_tickets.fetch_ticket_documents")
-def test_build_ticket_index_multiple_batches(
-    mock_fetch,
-    mock_create
-):
+def test_build_ticket_index_multiple_batches(mock_fetch, mock_create):
     docs = list(range(120))
     mock_fetch.return_value = docs
 
@@ -123,9 +117,7 @@ def test_build_ticket_index_multiple_batches(
     mock_create.return_value = (mock_index, mock_collection)
 
     mock_splitter = type(
-        "MockSplitter",
-        (),
-        {"get_nodes_from_documents": lambda self, docs: docs}
+        "MockSplitter", (), {"get_nodes_from_documents": lambda self, docs: docs}
     )()
 
     with patch("ingestion.ingest_tickets.SentenceSplitter", return_value=mock_splitter):
@@ -133,6 +125,7 @@ def test_build_ticket_index_multiple_batches(
 
     assert count == 120
     assert mock_index.insert_nodes.call_count > 1
+
 
 @patch("ingestion.ingest_tickets.fetch_ticket_documents")
 def test_build_ticket_index_raises(mock_fetch):

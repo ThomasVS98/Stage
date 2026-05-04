@@ -1,5 +1,8 @@
 import chromadb
-from ingestion.loaders.topdesk_loader import fetch_topdesk_incidents, incidents_to_documents
+from ingestion.loaders.topdesk_loader import (
+    fetch_topdesk_incidents,
+    incidents_to_documents,
+)
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.core.node_parser import SentenceSplitter
@@ -8,6 +11,7 @@ from utils.logging import get_logger
 from utils.exceptions import ExternalServiceError
 
 logger = get_logger(__name__)
+
 
 def fetch_ticket_documents(limit=300):
     logger.info("Topdesk tickets ophalen...")
@@ -36,8 +40,7 @@ def create_ticket_index():
         logger.info("Geen tickets collectie om te verwijderen")
 
     collection = chroma_client.get_or_create_collection(
-        name="tickets",
-        metadata={"hnsw:space": "cosine"}
+        name="tickets", metadata={"hnsw:space": "cosine"}
     )
 
     vector_store = ChromaVectorStore(chroma_collection=collection)
@@ -47,10 +50,11 @@ def create_ticket_index():
         nodes=[],
         storage_context=storage_context,
         embed_model=get_embed_model(),
-        #transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
-        show_progress=True
+        # transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
+        show_progress=True,
     )
     return index, collection
+
 
 def build_ticket_index(limit=300):
     documents = fetch_ticket_documents(limit)
@@ -63,7 +67,7 @@ def build_ticket_index(limit=300):
     count = 0
 
     for item in range(0, len(documents), BATCH_SIZE):
-        batch = documents[item:item+BATCH_SIZE]
+        batch = documents[item : item + BATCH_SIZE]
         nodes = splitter.get_nodes_from_documents(batch)
         index.insert_nodes(nodes)
         count += len(batch)

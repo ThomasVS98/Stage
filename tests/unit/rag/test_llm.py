@@ -3,9 +3,11 @@ import rag.llm as llm_module
 from rag.llm import get_llm
 from unittest.mock import patch
 
+
 @pytest.fixture(autouse=True)
 def reset_llm():
     llm_module._llm = None
+
 
 def test_get_llm_created_instance_once():
     with patch("rag.llm.Ollama") as mock_ollama:
@@ -19,6 +21,7 @@ def test_get_llm_created_instance_once():
 
         mock_ollama.assert_called_once()
 
+
 @patch("rag.llm.Ollama")
 def test_get_llm_returns_same_instance(_):
     llm1 = get_llm()
@@ -26,12 +29,12 @@ def test_get_llm_returns_same_instance(_):
 
     assert llm1 is llm2
 
+
 def test_get_llm_configuration():
     with patch("rag.llm.Ollama") as mock_ollama:
         get_llm()
-       
-        _, kwargs = mock_ollama.call_args
 
+        _, kwargs = mock_ollama.call_args
 
         # structuur
         assert "model" in kwargs
@@ -39,7 +42,7 @@ def test_get_llm_configuration():
         assert "temperature" in kwargs
         assert "request_timeout" in kwargs
 
-        # type 
+        # type
         assert isinstance(kwargs["model"], str)
         assert isinstance(kwargs["context_window"], int)
 

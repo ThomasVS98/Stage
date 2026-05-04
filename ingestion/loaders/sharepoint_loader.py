@@ -8,38 +8,45 @@ from ingestion.preprocessing.cleaning import normalize_text
 from ingestion.loader_registry import register_loader
 from llama_index.core import Document
 from ingestion.processing.file_processor import process_file, create_document_from_file
-from ingestion.loaders.sharepoint_external_links_loader import is_valid_external, scrape_page
+from ingestion.loaders.sharepoint_external_links_loader import (
+    is_valid_external,
+    scrape_page,
+)
 from utils.logging import get_logger
 from config.settings import settings
 from clients.ms_graph_client import graph_get
 
 logger = get_logger(__name__)
 
-def html_to_markdown(raw_html:str):
+
+def html_to_markdown(raw_html: str):
     if not raw_html:
         return "", []
-    
+
     soup = BeautifulSoup(raw_html, "html.parser")
     related_links = []
 
     for tag in soup(["script", "style"]):
         tag.decompose()
 
-    for a in soup.find_all("a",href=True):
+    for a in soup.find_all("a", href=True):
         href = urllib.parse.unquote(a["href"])
         if href.startswith("/") and settings.SHAREPOINT_BASE_URL:
             href = f"{settings.SHAREPOINT_BASE_URL}{href}"
         if not href.startswith("javascript:"):
-            related_links.append({
-                "title": a.get_text(strip=True),
-                "url": href,
-            })
+            related_links.append(
+                {
+                    "title": a.get_text(strip=True),
+                    "url": href,
+                }
+            )
             a["href"] = href
 
     text = md(str(soup), heading_style="ATX", bullets="-")
     text = html.unescape(text)
     text = normalize_text(text)
     return text, related_links
+
 
 def extract_page_content(page_details):
     content_parts = []
@@ -55,8 +62,12 @@ def extract_page_content(page_details):
 
                 if not raw_html:
                     data = webpart.get("data", {})
-                    raw_html = data.get("innerHTML") or data.get("innerHtml") or data.get("text")
-                                
+                    raw_html = (
+                        data.get("innerHTML")
+                        or data.get("innerHtml")
+                        or data.get("text")
+                    )
+
                 if raw_html:
                     text, links = html_to_markdown(raw_html)
                     content_parts.append(text)
@@ -64,10 +75,12 @@ def extract_page_content(page_details):
 
     return content_parts, all_links
 
+
 def build_folder_url(site_id, folder_id):
     if folder_id == "root":
         return f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/root/children"
     return f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/items/{folder_id}/children"
+
 
 def fetch_all_sharepoint_pages(site_id, site_label):
 
@@ -76,13 +89,17 @@ def fetch_all_sharepoint_pages(site_id, site_label):
 
     final_data = []
     if res_pages.status_code != 200:
-            logger.warning("Error in ophalen SharePoint pagina's: %s | %s", res_pages.status_code, res_pages.text[:300])
-            return []
-    pages = res_pages.json().get('value', [])
+        logger.warning(
+            "Error in ophalen SharePoint pagina's: %s | %s",
+            res_pages.status_code,
+            res_pages.text[:300],
+        )
+        return []
+    pages = res_pages.json().get("value", [])
     for page in pages:
-        page_id = page.get('id')
-        title = page.get('title')
-        url = page.get('webUrl')
+        page_id = page.get("id")
+        title = page.get("title")
+        url = page.get("webUrl")
 
         content_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/pages/{page_id}/microsoft.graph.sitePage?$expand=canvasLayout"
         res_content = graph_get(content_url)
@@ -91,7 +108,6 @@ def fetch_all_sharepoint_pages(site_id, site_label):
             logger.warning("Content ophalen mislukt voor pagina: %s", title)
             continue
 
-
         page_details = res_content.json()
         content_parts, all_links = extract_page_content(page_details)
         full_page_text = title + "\n\n" + "\n\n".join(content_parts)
@@ -99,22 +115,25 @@ def fetch_all_sharepoint_pages(site_id, site_label):
         if not content_parts:
             continue
 
-        final_data.append({
-            "content": full_page_text.strip(),
-            "links": all_links,
-            "metadata": {
-            "source": "sharepoint",
-            "source_id": page_id,
-            "title": title,
-            "url": url,
-            "doc_type": "webpage",
-            "site_label": site_label
-        }
-        })
+        final_data.append(
+            {
+                "content": full_page_text.strip(),
+                "links": all_links,
+                "metadata": {
+                    "source": "sharepoint",
+                    "source_id": page_id,
+                    "title": title,
+                    "url": url,
+                    "doc_type": "webpage",
+                    "site_label": site_label,
+                },
+            }
+        )
         logger.info("Opgehaalde site: %s", title)
 
     return final_data
-    
+
+
 def fetch_sharepoint_files(site_id, site_label):
 
     final_files = []
@@ -131,7 +150,11 @@ def fetch_sharepoint_files(site_id, site_label):
         url = build_folder_url(site_id, current_folder)
         res = graph_get(url)
         if res.status_code != 200:
-            logger.warning("Graph call mislukt voor files: %s | %s", res.status_code, res.text[:300])
+            logger.warning(
+                "Graph call mislukt voor files: %s | %s",
+                res.status_code,
+                res.text[:300],
+            )
             continue
         items = res.json().get("value", [])
         for item in items:
@@ -143,22 +166,27 @@ def fetch_sharepoint_files(site_id, site_label):
                     continue
                 seen_files.add(file_id)
                 name = item["name"]
-                if name.lower().endswith((".pdf", ".docx", ".xlsx", ".pptx",".txt")):
-                    final_files.append({
-                        "content": "",  # Wordt gevuld na het downloaden/lezen
-                        "metadata": {
-                            "source": "sharepoint",
-                            "source_id": item["id"],
-                            "title": name,
-                            "filename": name,
-                            "url": item.get("webUrl"),
-                            "download_url": item.get("@microsoft.graph.downloadUrl"),
-                            "doc_type": "file",
-                            "site_label": site_label
+                if name.lower().endswith((".pdf", ".docx", ".xlsx", ".pptx", ".txt")):
+                    final_files.append(
+                        {
+                            "content": "",  # Wordt gevuld na het downloaden/lezen
+                            "metadata": {
+                                "source": "sharepoint",
+                                "source_id": item["id"],
+                                "title": name,
+                                "filename": name,
+                                "url": item.get("webUrl"),
+                                "download_url": item.get(
+                                    "@microsoft.graph.downloadUrl"
+                                ),
+                                "doc_type": "file",
+                                "site_label": site_label,
+                            },
                         }
-                    })
+                    )
                     logger.info("Bestand gevonden: %s", name)
     return final_files
+
 
 def download_sharepoint_file(download_url, save_path):
     """Download een bestand van SharePoint naar een lokale map."""
@@ -173,12 +201,16 @@ def download_sharepoint_file(download_url, save_path):
     except Exception as e:
         logger.exception("Fout bij downloaden: %s", e)
         return False
-    
-@register_loader("sharepoint", schema={
-    "site_id": {"type": "string", "required": True},
-    "label": {"type": "string", "required": False},
-    "include_external_links": {"type": "bool", "required": False, "default": False}
-})
+
+
+@register_loader(
+    "sharepoint",
+    schema={
+        "site_id": {"type": "string", "required": True},
+        "label": {"type": "string", "required": False},
+        "include_external_links": {"type": "bool", "required": False, "default": False},
+    },
+)
 def load_sharepoint_source(config: dict):
     """
     Nieuwe generieke loader voor SharePoint kennisbronnen.
@@ -193,7 +225,6 @@ def load_sharepoint_source(config: dict):
         logger.warning("Geen site_id gevonden in config voor SharePoint bron")
         return
 
-
     logger.info("SharePoint pagina's ophalen: %s", label)
     pages = fetch_all_sharepoint_pages(site_id, label)
 
@@ -202,20 +233,19 @@ def load_sharepoint_source(config: dict):
     for page in pages:
         full_text = page["content"]
 
-        new_doc = Document(
-            text=full_text,
-            metadata=page["metadata"]
-        )
+        new_doc = Document(text=full_text, metadata=page["metadata"])
 
         new_doc.metadata["source_type"] = "sharepoint_page"
-        new_doc.excluded_embed_metadata_keys = ["url","source_id"]
+        new_doc.excluded_embed_metadata_keys = ["url", "source_id"]
         new_doc.excluded_llm_metadata_keys = ["url", "source_id"]
- 
+
         yield new_doc
 
         if include_external_links:
             links = page.get("links", [])
-            filtered_links = [link["url"] for link in links if is_valid_external(link["url"])]
+            filtered_links = [
+                link["url"] for link in links if is_valid_external(link["url"])
+            ]
             for link in filtered_links[:3]:
                 normalized = link.rstrip("/").lower()
 
@@ -242,8 +272,8 @@ def load_sharepoint_source(config: dict):
                         "source_type": "external_webpage",
                         "url": link,
                         "title": page_title,
-                        "parent_page": page["metadata"].get("title")
-                    }
+                        "parent_page": page["metadata"].get("title"),
+                    },
                 )
 
                 ext_doc.excluded_embed_metadata_keys = ["url"]
@@ -276,9 +306,11 @@ def load_sharepoint_source(config: dict):
         try:
             os.remove(file_path)
         except Exception as e:
-            logger.exception("Fout bij verwijderen tijdelijk bestand %s: %s", filename, e)
+            logger.exception(
+                "Fout bij verwijderen tijdelijk bestand %s: %s", filename, e
+            )
 
         new_doc = create_document_from_file(full_content, meta)
-        
+
         if new_doc:
             yield new_doc

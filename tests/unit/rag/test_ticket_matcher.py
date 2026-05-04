@@ -1,6 +1,7 @@
 from unittest.mock import patch, MagicMock
 from rag.ticket_matcher import find_similar_ticket
 
+
 @patch("rag.ticket_matcher.get_index")
 def test_find_similar_ticket_no_index(mock_get_index):
     mock_get_index.return_value = None
@@ -9,14 +10,11 @@ def test_find_similar_ticket_no_index(mock_get_index):
 
     assert result is None
 
+
 @patch("rag.ticket_matcher.rerank_nodes")
 @patch("rag.ticket_matcher.retrieve_nodes")
 @patch("rag.ticket_matcher.get_index")
-def test_find_similar_ticket_no_nodes(
-    mock_get_index,
-    mock_retrieve,
-    mock_rerank
-):
+def test_find_similar_ticket_no_nodes(mock_get_index, mock_retrieve, mock_rerank):
     mock_get_index.return_value = "index"
     mock_retrieve.return_value = []
     mock_rerank.return_value = []
@@ -25,13 +23,12 @@ def test_find_similar_ticket_no_nodes(
 
     assert result is None
 
+
 @patch("rag.ticket_matcher.rerank_nodes")
 @patch("rag.ticket_matcher.retrieve_nodes")
 @patch("rag.ticket_matcher.get_index")
 def test_find_similar_ticket_below_threshold(
-    mock_get_index,
-    mock_retrieve,
-    mock_rerank
+    mock_get_index, mock_retrieve, mock_rerank
 ):
     mock_get_index.return_value = "index"
 
@@ -45,14 +42,11 @@ def test_find_similar_ticket_below_threshold(
 
     assert result is None
 
+
 @patch("rag.ticket_matcher.rerank_nodes")
 @patch("rag.ticket_matcher.retrieve_nodes")
 @patch("rag.ticket_matcher.get_index")
-def test_find_similar_ticket_success(
-    mock_get_index,
-    mock_retrieve,
-    mock_rerank
-):
+def test_find_similar_ticket_success(mock_get_index, mock_retrieve, mock_rerank):
     mock_get_index.return_value = "index"
 
     mock_node_inner = MagicMock()
@@ -67,28 +61,18 @@ def test_find_similar_ticket_success(
 
     result = find_similar_ticket({"beschrijving": "test"})
 
-    assert result == {
-        "score": 0.8,
-        "text": "oplossing"
-    }
+    assert result == {"score": 0.8, "text": "oplossing"}
+
 
 @patch("rag.ticket_matcher.rerank_nodes")
 @patch("rag.ticket_matcher.retrieve_nodes")
 @patch("rag.ticket_matcher.get_index")
-def test_find_similar_ticket_query_format(
-    mock_get_index,
-    mock_retrieve,
-    mock_rerank
-):
+def test_find_similar_ticket_query_format(mock_get_index, mock_retrieve, mock_rerank):
     mock_get_index.return_value = "index"
     mock_retrieve.return_value = []
     mock_rerank.return_value = []
 
-    data = {
-        "beschrijving": "probleem",
-        "context": "extra",
-        "doel": "oplossen"
-    }
+    data = {"beschrijving": "probleem", "context": "extra", "doel": "oplossen"}
 
     find_similar_ticket(data)
 

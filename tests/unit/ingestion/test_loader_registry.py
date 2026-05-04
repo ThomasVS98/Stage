@@ -1,10 +1,12 @@
 import pytest
 import ingestion.loader_registry as registry
 
+
 @pytest.fixture(autouse=True)
 def clear_registry():
     registry.LOADERS.clear()
     registry.SCHEMAS.clear()
+
 
 def test_register_loader():
     from ingestion.loader_registry import register_loader, get_loader
@@ -12,11 +14,12 @@ def test_register_loader():
     @register_loader("test")
     def dummy():
         return "ok"
-    
+
     loader = get_loader("test")
 
     assert loader is not None
     assert loader() == "ok"
+
 
 def test_get_available_loaders():
     from ingestion.loader_registry import register_loader, get_available_loaders
@@ -28,6 +31,7 @@ def test_get_available_loaders():
     loaders = get_available_loaders()
 
     assert "test2" in loaders
+
 
 def test_register_loader_with_schema():
     from ingestion.loader_registry import register_loader, get_schema
@@ -42,9 +46,12 @@ def test_register_loader_with_schema():
 
     assert result == schema
 
+
 def test_get_loader_not_found():
     from ingestion.loader_registry import get_loader
+
     assert get_loader("non_existent") is None
+
 
 def test_get_schema_empty_default():
     from ingestion.loader_registry import register_loader, get_schema

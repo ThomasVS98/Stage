@@ -3,12 +3,17 @@ import re
 from llama_index.core import Document
 from markdownify import markdownify as md
 import html
-from ingestion.preprocessing.cleaning import clean_text, clean_topdesk_text, normalize_text
+from ingestion.preprocessing.cleaning import (
+    clean_text,
+    clean_topdesk_text,
+    normalize_text,
+)
 from ingestion.loader_registry import register_loader
 from utils.logging import get_logger
 from config.settings import settings
 
 logger = get_logger(__name__)
+
 
 def html_to_markdown(raw_html: str) -> str:
     if not raw_html:
@@ -20,14 +25,17 @@ def html_to_markdown(raw_html: str) -> str:
     return text
 
 
-def has_usable_content(item:dict)->bool:
+def has_usable_content(item: dict) -> bool:
     translation = item.get("translation") or {}
     content = translation.get("content") or {}
     body = (content.get("content") or "").strip()
     return bool(body)
 
+
 def fetch_topdesk_knowledge_items():
-    if not all([settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]):
+    if not all(
+        [settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]
+    ):
         logger.error("TOPdesk loader configuratie ontbreekt!")
         return
 
@@ -35,8 +43,8 @@ def fetch_topdesk_knowledge_items():
     params = {
         "start": 0,
         "page_size": 100,
-        "language":"nl",
-        "fields": "title,description,content,keywords"
+        "language": "nl",
+        "fields": "title,description,content,keywords",
     }
 
     while url:
@@ -45,7 +53,7 @@ def fetch_topdesk_knowledge_items():
             auth=(settings.TOPDESK_USER, settings.TOPDESK_SECRET),
             params=params if "?" not in url else None,
             headers={"Accept": "application/json"},
-            timeout=30
+            timeout=30,
         )
         r.raise_for_status()
         data = r.json()
@@ -56,7 +64,7 @@ def fetch_topdesk_knowledge_items():
             if not has_usable_content(item):
                 continue
 
-            c = ((item.get("translation") or {}).get("content") or {})
+            c = (item.get("translation") or {}).get("content") or {}
             title = (c.get("title") or "").strip()
             description_md = html_to_markdown(c.get("description") or "")
             content_md = html_to_markdown(c.get("content") or "")
@@ -82,7 +90,7 @@ def fetch_topdesk_knowledge_items():
                 "source_type": "topdesk_kb",
                 "source_id": item.get("id"),
                 "number": item.get("number"),
-                "title": title
+                "title": title,
             }
 
             doc = Document(text=full_text, metadata=meta)
@@ -94,15 +102,18 @@ def fetch_topdesk_knowledge_items():
         url = data.get("next") or None
         params = None
 
+
 def fetch_topdesk_incidents(limit=300):
-    if not all([settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]):
+    if not all(
+        [settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]
+    ):
         logger.error("TOPdesk loader configuratie ontbreekt!")
         return []
-    
+
     url = f"{settings.TOPDESK_BASE_URL}/tas/api/incidents"
 
     params = {
-        "page_size":50,
+        "page_size": 50,
         "start": 0,
     }
     all_items = []
@@ -113,29 +124,32 @@ def fetch_topdesk_incidents(limit=300):
             auth=(settings.TOPDESK_USER, settings.TOPDESK_SECRET),
             params=params if "?" not in url else None,
             headers={"Accept": "application/json"},
-            timeout=30
+            timeout=30,
         )
         r.raise_for_status()
 
         data = r.json()
 
-        results = data if isinstance(data, list) else data.get("results",[])
+        results = data if isinstance(data, list) else data.get("results", [])
         all_items.extend(results)
 
         if len(results) < params["page_size"]:
             break
         params["start"] += params["page_size"]
 
-    logger.info("TOPdesk incidents opgehaald: %s (limit: %s)", len(all_items[:limit]), limit)
+    logger.info(
+        "TOPdesk incidents opgehaald: %s (limit: %s)", len(all_items[:limit]), limit
+    )
 
     return all_items[:limit]
+
 
 def incidents_to_documents(items: list[dict]) -> list[Document]:
     docs = []
 
     for item in items:
         description = (item.get("briefDescription") or "").strip()
-        request = (item.get("request") or "")
+        request = item.get("request") or ""
         request = clean_topdesk_text(request)
         request = clean_text(request)
         number = item.get("number")
@@ -148,12 +162,12 @@ Probleem: {description}
 Details:
 {request}
 """.strip()
-        
+
         meta = {
             "source": "topdesk",
             "source_type": "incident",
             "number": number,
-            "source_id": item.get("id")
+            "source_id": item.get("id"),
         }
 
         doc = Document(text=text, metadata=meta)
@@ -161,11 +175,14 @@ Details:
 
     return docs
 
-@register_loader("topdesk", schema={
-    "include_kb": {"type": "bool", "default": True},
-    "incident_limit": {"type": "int", "default": 200}
 
-})
+@register_loader(
+    "topdesk",
+    schema={
+        "include_kb": {"type": "bool", "default": True},
+        "incident_limit": {"type": "int", "default": 200},
+    },
+)
 def load_topdesk_source(config: dict):
     """Loader voor TOPdesk bronnen.
     Haalt knowledge items op
@@ -181,6 +198,6 @@ def load_topdesk_source(config: dict):
                 yield doc
                 count += 1
             logger.info("TOPdesk kennis-items docs: %s", count)
-    
+
     except Exception as e:
         logger.exception("Fout bij ophalen van TOPdesk data: %s", e)

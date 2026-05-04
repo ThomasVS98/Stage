@@ -1,12 +1,12 @@
 from langfuse import observe
 
+
 @observe(name="build_context")
 def build_context(nodes):
 
     context = ""
 
     for node in nodes:
-
         text = node.node.get_content()
         metadata = node.node.metadata
 
@@ -25,4 +25,3 @@ def build_context(nodes):
         [/DOCUMENT]
         """
     return context
-    
