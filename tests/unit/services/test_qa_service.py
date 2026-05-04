@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 
 @patch("services.qa_service.run_rag")
 def test_answer_db_not_initialized(mock_rag):
-    mock_rag.return_value = (None, None)
+    mock_rag.return_value = (None, None, None)
 
     result = answer("test vraag")
 
@@ -16,7 +16,7 @@ def test_answer_db_not_initialized(mock_rag):
 @patch("services.qa_service.get_llm")
 @patch("services.qa_service.run_rag")
 def test_answer_no_results_support(mock_rag, mock_llm, mock_intent):
-    mock_rag.return_value = ([], None)
+    mock_rag.return_value = ([], None, None)
 
     result = answer("help mij")
 
@@ -28,7 +28,7 @@ def test_answer_no_results_support(mock_rag, mock_llm, mock_intent):
 @patch("services.qa_service.get_llm")
 @patch("services.qa_service.run_rag")
 def test_answer_no_results_algemeen(mock_rag, mock_llm, mock_intent):
-    mock_rag.return_value = ([], None)
+    mock_rag.return_value = ([], None, None)
 
     result = answer("algemene vraag")
 
@@ -40,7 +40,7 @@ def test_answer_no_results_algemeen(mock_rag, mock_llm, mock_intent):
 @patch("services.qa_service.get_llm")
 @patch("services.qa_service.run_rag")
 def test_answer_no_results_irrelevant(mock_rag, mock_llm, mock_intent):
-    mock_rag.return_value = ([], None)
+    mock_rag.return_value = ([], None, None)
 
     result = answer("random")
 
@@ -51,39 +51,68 @@ def test_answer_no_results_irrelevant(mock_rag, mock_llm, mock_intent):
 @patch("services.qa_service.get_llm")
 @patch("services.qa_service.run_rag")
 def test_answer_no_results_unknown(mock_rag, mock_llm, mock_intent):
-    mock_rag.return_value = ([], None)
+    mock_rag.return_value = ([], None, None)
 
     result = answer("???")
 
     assert result["sources"] == []
     assert "niet goed interpreteren" in result["answer"].lower()
 
+@patch("services.qa_service.executor.submit")
 @patch("services.qa_service.run_rag")
-def test_answer_with_results(mock_rag):
+def test_answer_with_results(mock_rag, mock_submit):
     mock_node = MagicMock()
     mock_node.node.metadata = {
         "title": "Doc1",
         "url": "http://test.com"
     }
 
-    mock_rag.return_value = ([mock_node], "Dit is het antwoord")
+    mock_rag.return_value = ([mock_node], "Dit is het antwoord", "context")
 
     result = answer("vraag")
 
     assert result["answer"] == "Dit is het antwoord"
     assert result["sources"] == ["Doc1: http://test.com"]
+    mock_submit.assert_called_once()
 
+@patch("services.qa_service.executor.submit")
 @patch("services.qa_service.run_rag")
-def test_answer_with_topdesk_source(mock_rag):
+def test_answer_with_topdesk_source(mock_rag, mock_submit):
     mock_node = MagicMock()
     mock_node.node.metadata = {
         "title": "Kennis-item 0",
         "source": "topdesk"
     }
 
-    mock_rag.return_value = ([mock_node], "Antwoord")
+    mock_rag.return_value = ([mock_node], "Antwoord", "context")
 
     result = answer("vraag")
 
     assert result["answer"] == "Antwoord"
     assert result["sources"] == ["Kennis-item 0 (TOPdesk)"]
+    mock_submit.assert_called_once()
+
+@patch("services.qa_service.executor.submit")
+@patch("services.qa_service.run_rag")
+def test_answer_multiple_sources(mock_rag, mock_submit):
+    node1 = MagicMock()
+    node1.node.metadata = {
+        "title": "Doc1",
+        "url": "http://test.com"
+    }
+
+    node2 = MagicMock()
+    node2.node.metadata = {
+        "title": "Kennis-item 0",
+        "source": "topdesk"
+    }
+
+    mock_rag.return_value = ([node1, node2], "Antwoord", "context")
+
+    result = answer("vraag")
+
+    assert result["sources"] == [
+        "Doc1: http://test.com",
+        "Kennis-item 0 (TOPdesk)"
+    ]
+    mock_submit.assert_called_once()
