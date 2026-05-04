@@ -215,7 +215,7 @@ def load_sharepoint_source(config: dict):
 
         if include_external_links:
             links = page.get("links", [])
-            filtered_links = [l["url"] for l in links if is_valid_external(l["url"])]
+            filtered_links = [link["url"] for link in links if is_valid_external(link["url"])]
             for link in filtered_links[:3]:
                 normalized = link.rstrip("/").lower()
 

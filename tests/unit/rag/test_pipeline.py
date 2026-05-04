@@ -1,5 +1,5 @@
 from rag.pipeline import run_rag
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 @patch("rag.pipeline.get_index")
 def test_run_rag_no_index(mock_get_index):

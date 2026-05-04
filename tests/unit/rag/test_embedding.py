@@ -34,7 +34,7 @@ def test_get_embed_model_configuration():
         _, kwargs = mock_model.call_args
        
         assert kwargs.get("model_name") == "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-        assert kwargs.get("normalize") == True
+        assert kwargs.get("normalize")
 
         expected_device = "cuda" if torch.cuda.is_available() else "cpu"
         assert kwargs.get("device") == expected_device

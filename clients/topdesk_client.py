@@ -1,4 +1,3 @@
-import os
 import requests
 import json
 from utils.logging import get_logger

@@ -421,7 +421,7 @@ def test_load_sharepoint_source_file_flow(
     mock_doc = MagicMock()
     mock_create_doc.return_value = mock_doc
 
-    docs = list(load_sharepoint_source({
+    list(load_sharepoint_source({
         "site_id": "site123",
         "include_external_links": False
     }))

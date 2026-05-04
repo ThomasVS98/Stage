@@ -1,10 +1,16 @@
-import os, time, requests, uuid, sys
+import os
+import time
+import requests
+import uuid
+import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import streamlit as st
 from ingestion.loader_registry import get_available_loaders, get_schema
 from utils.logging import setup_logging, get_logger
 from config.settings import settings
+
+# nodig voor loader registry zodat de beschikbare loadersgetoond worden in de admin interface
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
 import ingestion.loaders.onedrive_loader
@@ -208,7 +214,7 @@ with tab_admin:
                         friendly_error = f"Veld '{field}' is verplicht of bevat een fout: {msg}"
                     else:
                         friendly_error = error_data.get("detail", res.text)
-                except:
+                except Exception:
                     friendly_error = res.text
 
                 st.error(f"Fout bij opslaan bronnen: {friendly_error}")
@@ -319,7 +325,7 @@ with tab_admin:
                 elif field_type == "int":
                     try:
                         default = int(default)
-                    except:
+                    except (ValueError, TypeError):
                         default = rules.get("default", 0)
 
                 if key not in st.session_state:

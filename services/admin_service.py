@@ -1,4 +1,7 @@
-import os, psutil, gc, uuid
+import os
+import psutil
+import gc
+import uuid
 from ingestion.ingest_pipeline import load_all_data, build_index, load_source_config, cleanup_temp_files
 from ingestion.ingest_tickets import build_ticket_index
 from ingestion.loader_registry import get_schema
