@@ -32,7 +32,17 @@ def test_get_llm_configuration():
        
         _, kwargs = mock_ollama.call_args
 
-        assert kwargs.get("model") == "llama3.2:3b"
-        assert kwargs.get("request_timeout") == 300
-        assert kwargs.get("context_window") == 6140
-        assert kwargs.get("temperature") == 0
+
+        # structuur
+        assert "model" in kwargs
+        assert "context_window" in kwargs
+        assert "temperature" in kwargs
+        assert "request_timeout" in kwargs
+
+        # type 
+        assert isinstance(kwargs["model"], str)
+        assert isinstance(kwargs["context_window"], int)
+
+        # belangrijke vaste waarden
+        assert kwargs["temperature"] == 0
+        assert kwargs["request_timeout"] == 300

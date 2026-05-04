@@ -29,6 +29,8 @@ def test_html_to_markdown_links():
     assert len(links) == 1
     assert links[0]["url"] == "https://example.com/path"
 
+    settings.SHAREPOINT_BASE_URL = None
+
 def test_html_to_markdown_ignores_js_links():
     html = '<a href="javascript:void(0)">Klik</a>'
 

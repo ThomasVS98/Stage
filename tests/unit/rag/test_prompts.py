@@ -1,11 +1,14 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 from rag.prompts import (
     extract_json,
     is_valid_query,
     detect_intent_prompt,
-    answer_prompt,
+    answer_system_prompt,
+    answer_user_prompt,
     detect_intent,
-    generate_answer
+    generate_answer,
+    parse_llm_json,
+    judge_answer
 )
 
 def test_extracts_json_basic():
@@ -53,27 +56,6 @@ def test_detect_intent_prompt_contains_json_instruction():
 
     assert '{"intent": "SUPPORT"}' in prompt
 
-def test_answer_prompt_contains_context_and_query():
-    context = "Dit is de context"
-    query = "Wat is de vraag?"
-
-    prompt = answer_prompt(context, query)
-
-    assert context in prompt
-    assert query in prompt
-
-def test_answer_prompt_contains_guidelines():
-    prompt = answer_prompt("context", "query")
-
-    assert "Antwoord uitsluitend op basis van de onderstaande context" in prompt
-
-def test_answer_prompt_structure():
-    prompt = answer_prompt("context", "query")
-
-    assert "Context:" in prompt
-    assert "Vraag:" in prompt
-    assert "Antwoord:" in prompt
-
 def test_detect_intent_json_response():
     mock_llm = MagicMock()
     mock_llm.complete.return_value.text = '{"intent": "SUPPORT"}'
@@ -113,19 +95,55 @@ def test_detect_intent_unparsable():
 
     assert result == "ONBEKEND"
 
-@patch("rag.prompts.answer_prompt")
-def test_generate_answer_calls_llm(mock_answer_prompt):
+def test_generate_answer_calls_llm():
     mock_llm = MagicMock()
+    
+    mock_response = MagicMock()
+    mock_response.message.content = "response"
 
-    mock_answer_prompt.return_value = "fake_prompt"
-    mock_llm.stream_complete.return_value = "response"
+    mock_llm.chat.return_value = mock_response
 
     result = generate_answer(mock_llm, "context", "query")
 
     assert result == "response"
+    mock_llm.chat.assert_called_once()
 
-    mock_answer_prompt.assert_called_once_with("context", "query")
-    mock_llm.stream_complete.assert_called_once_with("fake_prompt")
+def test_answer_system_prompt_contains_guidelines():
+    prompt = answer_system_prompt()
+
+    assert "Antwoord uitsluitend op basis van de onderstaande context" in prompt
+
+def test_answer_user_prompt_structure():
+    prompt = answer_user_prompt("ctx", "vraag")
+
+    assert "Context:" in prompt
+    assert "Vraag:" in prompt
+
+def test_parse_llm_json_valid():
+    raw = '{"faithfulness": 2}'
+    result = parse_llm_json(raw, {})
+
+    assert result["faithfulness"] == 2
+
+def test_parse_llm_json_fallback():
+    raw = "invalid"
+
+    fallback = {"x": 1}
+    result = parse_llm_json(raw, fallback)
+
+    assert result == fallback
+
+def test_judge_answer_parses_json():
+    mock_llm = MagicMock()
+
+    mock_response = MagicMock()
+    mock_response.message.content = '{"faithfulness": 2}'
+    mock_llm.chat.return_value = mock_response
+
+    result = judge_answer(mock_llm, "context", "query", "answer")
+
+    assert result["faithfulness"] == 2
+
 
 
 

@@ -116,7 +116,7 @@ def build_index(document_generator):
     count =  process_documents(index, document_generator)
 
     logger.info("Indexering klaar")
-    logger.info("Totaal aantal chuncks in vector store: %s", chroma_collection.count())
+    logger.info("Totaal aantal chunks in vector store: %s", chroma_collection.count())
 
     return count
 

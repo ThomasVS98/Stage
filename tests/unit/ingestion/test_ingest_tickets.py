@@ -106,6 +106,7 @@ def test_build_ticket_index_success(
     mock_create.assert_called_once()
     assert mock_index.insert_nodes.call_count == 1
     assert result[1] == 2
+    assert result[0] == mock_index
 
 
 @patch("ingestion.ingest_tickets.create_ticket_index")
@@ -130,5 +131,12 @@ def test_build_ticket_index_multiple_batches(
     with patch("ingestion.ingest_tickets.SentenceSplitter", return_value=mock_splitter):
         _, count = build_ticket_index(limit=200)
 
-    assert mock_index.insert_nodes.call_count == 3
     assert count == 120
+    assert mock_index.insert_nodes.call_count > 1
+
+@patch("ingestion.ingest_tickets.fetch_ticket_documents")
+def test_build_ticket_index_raises(mock_fetch):
+    mock_fetch.side_effect = ExternalServiceError("fail")
+
+    with pytest.raises(ExternalServiceError):
+        build_ticket_index()

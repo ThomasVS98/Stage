@@ -13,7 +13,7 @@ def test_retrieve_nodes_calls_retriever():
     assert result == ["node1", "node2"]
 
     mock_index.as_retriever.assert_called_once_with(
-        similarity_top_k=12,
+        similarity_top_k=25,
         filters=None
     )
 

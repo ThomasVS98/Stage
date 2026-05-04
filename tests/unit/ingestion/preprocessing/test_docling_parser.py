@@ -39,3 +39,17 @@ def test_extract_with_docling_strips_output(mock_get_converter):
     result = extract_with_docling("file.pdf")
 
     assert result == "tekst"
+
+@patch("ingestion.preprocessing.docling_parser.gc.collect")
+@patch("ingestion.preprocessing.docling_parser.get_converter")
+def test_extract_with_docling_calls_gc(mock_get_converter, mock_gc):
+    mock_converter = MagicMock()
+    mock_get_converter.return_value = mock_converter
+
+    mock_result = MagicMock()
+    mock_result.document.export_to_markdown.return_value = "text"
+    mock_converter.convert.return_value = mock_result
+
+    extract_with_docling("file.pdf")
+
+    mock_gc.assert_called_once()
