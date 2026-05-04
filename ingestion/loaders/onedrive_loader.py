@@ -1,4 +1,5 @@
-import os, requests
+import os
+import requests
 from ingestion.loader_registry import register_loader
 from clients.ms_graph_client import graph_get
 from ingestion.processing.file_processor import process_file, create_document_from_file

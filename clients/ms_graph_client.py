@@ -1,4 +1,5 @@
-import os, time, requests
+import time
+import requests
 from utils.logging import get_logger
 from config.settings import settings
 from utils.exceptions import ExternalServiceError

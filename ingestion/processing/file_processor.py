@@ -2,7 +2,10 @@ from llama_index.core import Document
 from ingestion.preprocessing.cleaning import clean_text, clean_markdown
 from llama_index.core import SimpleDirectoryReader
 from utils.logging import get_logger
-import subprocess, tempfile, os, sys
+import subprocess
+import tempfile
+import os
+import sys
 from pathlib import Path
 
 logger = get_logger(__name__)

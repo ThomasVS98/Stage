@@ -1,4 +1,3 @@
-import os
 import requests
 import re
 from llama_index.core import Document

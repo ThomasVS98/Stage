@@ -1,4 +1,6 @@
-import pytest, requests, time
+import pytest
+import requests
+import time
 from unittest.mock import patch, MagicMock
 from clients.ms_graph_client import get_graph_headers, graph_get
 from clients import ms_graph_client

@@ -1,4 +1,7 @@
-import os, psutil, shutil, gc
+import os
+import psutil
+import shutil
+import gc
 import chromadb
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -8,6 +11,8 @@ from rag.embedding import get_embed_model
 from utils.logging import get_logger, setup_logging
 from utils.config_loader import load_source_config
 from utils.exceptions import ExternalServiceError
+
+# Zorg dat de loaders geïmporteerd worden zodat ze geregistreerd worden in de loader registry
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
 import ingestion.loaders.onedrive_loader

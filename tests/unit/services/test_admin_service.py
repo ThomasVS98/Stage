@@ -5,7 +5,7 @@ from services.admin_service import (
     process_sources,
     validate_source 
 )
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from utils.exceptions import SourceConfigError, ExternalServiceError, IngestionError
 
 def test_get_folder_size(monkeypatch):
@@ -186,7 +186,6 @@ def test_run_full_ingestion_success(
 
 @patch("services.admin_service.load_all_data")
 def test_run_full_ingestion_external_error(mock_load):
-    from utils.exceptions import ExternalServiceError, IngestionError
 
     mock_load.side_effect = ExternalServiceError("fail")
 
@@ -209,7 +208,6 @@ def test_run_full_ingestion_no_docs(
 
 @patch("services.admin_service.load_all_data")
 def test_run_full_ingestion_ingestion_error_passthrough(mock_load):
-    from utils.exceptions import IngestionError
 
     mock_load.side_effect = IngestionError("fail")
 
@@ -275,7 +273,6 @@ def test_validate_source_unknown_type(monkeypatch):
 
 @patch("services.admin_service.load_all_data")
 def test_run_full_ingestion_generic_exception(mock_load):
-    from utils.exceptions import IngestionError
 
     mock_load.side_effect = Exception("boom")
 

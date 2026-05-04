@@ -1,4 +1,3 @@
-import pytest
 from ingestion.loaders.sharepoint_external_links_loader import (
     scrape_page,
     is_valid_external
