@@ -28,6 +28,22 @@ if "current_question" not in st.session_state:
     st.session_state.current_question = None
 if "adding_source" not in st.session_state:
     st.session_state.adding_source = False
+if "feedback_given" not in st.session_state:
+    st.session_state.feedback_given = False
+
+def send_feedback(query, answer, score):
+    try:
+        requests.post(
+            f"{settings.API_BASE_URL}/feedback",
+            json={
+                "query": query,
+                "answer": answer,
+                "score": score
+            },
+            timeout=2
+        )
+    except Exception:
+        pass
 
 tab_chat, tab_admin = st.tabs(["💬 Chat", "⚙️ Admin"])
 
@@ -40,6 +56,8 @@ with tab_chat:
         submitted = st.form_submit_button("Vraag stellen")
 
     if submitted and question:
+        st.session_state.last_question = question
+        st.session_state.feedback_given = False
         logger.info("Vraag ontvangen in Streamlit")
         with st.spinner("Bezig met het beantwoorden van de vraag..."):
             try:
@@ -67,6 +85,27 @@ with tab_chat:
     if st.session_state.answer:
         st.subheader("Antwoord:")
         st.markdown(st.session_state.answer)
+
+        st.markdown("#### Was dit antwoord nuttig?")
+        col = st.columns([4,2,4])[1]
+
+        with col:
+            left, right = st.columns([1,1], gap="small")
+
+            
+            if left.button("👍", key="feedback_up", disabled=st.session_state.feedback_given):
+                send_feedback(st.session_state.last_question, st.session_state.answer, "up")
+                st.session_state.feedback_given = True
+                st.rerun()
+
+            if right.button("👎", key="feedback_down", disabled=st.session_state.feedback_given):
+                send_feedback(st.session_state.last_question, st.session_state.answer, "down")
+                st.session_state.feedback_given = True
+                st.rerun()
+
+        if st.session_state.feedback_given:
+            st.caption("✔ Bedankt voor je feedback")
+
         if st.session_state.chat_sources:
             st.subheader("Bronnen:")
             for source in st.session_state.chat_sources:
