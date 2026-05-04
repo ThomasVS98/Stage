@@ -140,7 +140,12 @@ def test_judge_answer_parses_json():
     mock_response.message.content = '{"faithfulness": 2}'
     mock_llm.chat.return_value = mock_response
 
-    result = judge_answer(mock_llm, "context", "query", "answer")
+    result = judge_answer(
+        mock_llm, 
+        query="query",
+        context="context",
+        answer="answer"
+    )
 
     assert result["faithfulness"] == 2
 
