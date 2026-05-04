@@ -9,7 +9,16 @@ logger = get_logger(__name__)
 
 
 @router.post("/ingest")
-async def trigger_ingest():
+async def trigger_ingest() -> dict:
+    """
+    Start een volledige ingestie van documenten en tickets.
+
+    Deze endpoint triggert het herindexeren van alle geconfigureerde bronnen
+    en bestaande tickets (TOPdesk) in de vector database.
+
+    Returns:
+        dict: Statusinformatie met het aantal geïndexeerde documenten en tickets.
+    """
     logger.info("Ingestie verzoek ontvangen via API")
 
     result = run_full_ingestion()
@@ -22,12 +31,30 @@ async def trigger_ingest():
 
 
 @router.get("/sources")
-async def get_sources():
+async def get_sources() -> list[dict]:
+    """
+    Haalt de huidige bronconfiguratie op.
+
+    Returns:
+        list[dict]: Lijst van geconfigureerde bronnen.
+    """
     return load_source_config(resolve=False)
 
 
 @router.post("/sources")
-async def update_sources(sources: list[SourceModel] = Body(...)):
+async def update_sources(sources: list[SourceModel] = Body(...)) -> dict:
+    """
+    Update de configuratie van kennisbronnen.
+
+    Valideert de inkomende bronconfiguratie en slaat deze op.
+
+    Args:
+        sources (list[SourceModel]): Lijst van bronconfiguraties.
+
+    Returns:
+        dict: Statusbericht van de update-operatie.
+
+    """
     validated_sources = process_sources(sources)
     save_source_config(validated_sources)
 

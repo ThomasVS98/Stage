@@ -9,6 +9,15 @@ logger = get_logger(__name__)
 
 
 def build_incident_payload(data: dict) -> dict:
+    """
+    Bouwt de payload voor het aanmaken van een TOPdesk ticket.
+
+    Args:
+        data (dict): Gegevens van de intake (beschrijving, context, doel).
+
+    Returns:
+        dict: JSON payload volgens TOPdesk API formaat.
+    """
     return {
         "briefDescription": (data.get("beschrijving") or "")[:80],
         "request": f"""
@@ -21,11 +30,29 @@ Doel: {data.get("doel")}
 
 
 def write_mock_ticket(data: dict):
+    """
+    Schrijft een mock ticket naar een lokaal bestand voor testing.
+
+    Args:
+        data (dict): Ticketgegevens.
+    """
     with open("mock_tickets.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
 
 def create_topdesk_incident(data: dict) -> dict:
+    """
+    Maakt een nieuw ticket aan in TOPdesk via de API.
+
+    Args:
+        data (dict): Gegevens van de intake.
+
+    Returns:
+        dict: Response van TOPdesk met o.a. ticketnummer en ID.
+
+    Raises:
+        ExternalServiceError: Bij ontbrekende configuratie of mislukte API call.
+    """
     if not all(
         [settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]
     ):
@@ -54,7 +81,19 @@ def create_topdesk_incident(data: dict) -> dict:
 
 @observe(name="create_incident")
 def create_incident(data: dict, writer=None) -> dict:
-    # voor testing soms even topdesk kunnen uitzetten voor ticketing
+    """
+    Maakt een ticket aan, of schrijft een mock ticket indien TOPdesk is uitgeschakeld.
+
+    Wordt gebruikt als wrapper rond de TOPdesk integratie om eenvoudig
+    te kunnen schakelen tussen echte en mock tickets.
+
+    Args:
+        data (dict): Gegevens van de intake.
+        writer (callable, optional): Custom functie om mock tickets op te slaan.
+
+    Returns:
+        dict: Ticketinformatie (mock of echte response).
+    """
     if not settings.TOPDESK_ENABLED:
         logger.warning("TOPdesk uitgeschakeld: mock ticket wordt opgeslagen")
 
