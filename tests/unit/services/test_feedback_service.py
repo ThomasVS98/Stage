@@ -1,12 +1,15 @@
 import json
 from unittest.mock import patch, mock_open
 from services.feedback_service import save_feedback
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from api.main import app
+from api.routes.feedback_routes import router
 import pytest
 
 @pytest.fixture
 def client():
+    app = FastAPI()
+    app.include_router(router)
     return TestClient(app)
 
 @patch("services.feedback_service.open", new_callable=mock_open)

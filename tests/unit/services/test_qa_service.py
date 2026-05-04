@@ -58,9 +58,10 @@ def test_answer_no_results_unknown(mock_rag, mock_llm, mock_intent):
     assert result["sources"] == []
     assert "niet goed interpreteren" in result["answer"].lower()
 
+@patch("services.qa_service.get_llm")
 @patch("services.qa_service.executor.submit")
 @patch("services.qa_service.run_rag")
-def test_answer_with_results(mock_rag, mock_submit):
+def test_answer_with_results(mock_rag, mock_submit, mock_llm):
     mock_node = MagicMock()
     mock_node.node.metadata = {
         "title": "Doc1",
@@ -75,9 +76,10 @@ def test_answer_with_results(mock_rag, mock_submit):
     assert result["sources"] == ["Doc1: http://test.com"]
     mock_submit.assert_called_once()
 
+@patch("services.qa_service.get_llm")
 @patch("services.qa_service.executor.submit")
 @patch("services.qa_service.run_rag")
-def test_answer_with_topdesk_source(mock_rag, mock_submit):
+def test_answer_with_topdesk_source(mock_rag, mock_submit, mock_llm):
     mock_node = MagicMock()
     mock_node.node.metadata = {
         "title": "Kennis-item 0",
@@ -92,9 +94,10 @@ def test_answer_with_topdesk_source(mock_rag, mock_submit):
     assert result["sources"] == ["Kennis-item 0 (TOPdesk)"]
     mock_submit.assert_called_once()
 
+@patch("services.qa_service.get_llm")
 @patch("services.qa_service.executor.submit")
 @patch("services.qa_service.run_rag")
-def test_answer_multiple_sources(mock_rag, mock_submit):
+def test_answer_multiple_sources(mock_rag, mock_submit, mock_llm):
     node1 = MagicMock()
     node1.node.metadata = {
         "title": "Doc1",
