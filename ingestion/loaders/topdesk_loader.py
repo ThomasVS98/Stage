@@ -11,11 +11,23 @@ from ingestion.preprocessing.cleaning import (
 from ingestion.loader_registry import register_loader
 from utils.logging import get_logger
 from config.settings import settings
+from typing import Generator
 
 logger = get_logger(__name__)
 
 
 def html_to_markdown(raw_html: str) -> str:
+    """
+    Converteert HTML van TOPdesk naar genormaliseerde Markdown tekst.
+
+    Verwijdert afbeeldingen en normaliseert de tekst voor verdere verwerking.
+
+    Args:
+        raw_html (str): Ruwe HTML-inhoud.
+
+    Returns:
+        str: Genormaliseerde tekst.
+    """
     if not raw_html:
         return ""
     text = md(raw_html, heading_style="ATX", bullets="-")
@@ -26,6 +38,15 @@ def html_to_markdown(raw_html: str) -> str:
 
 
 def has_usable_content(item: dict) -> bool:
+    """
+    Controleert of een kennis-item bruikbare inhoud bevat.
+
+    Args:
+        item (dict): TOPdesk kennis-item.
+
+    Returns:
+        bool: True indien het item tekstuele inhoud bevat.
+    """
     translation = item.get("translation") or {}
     content = translation.get("content") or {}
     body = (content.get("content") or "").strip()
@@ -33,6 +54,14 @@ def has_usable_content(item: dict) -> bool:
 
 
 def fetch_topdesk_knowledge_items():
+    """
+    Haalt kennis-items op uit TOPdesk via de knowledge base REST API en zet deze om naar Document objecten.
+
+    Doorloopt de paginatie van de API en filtert items zonder bruikbare inhoud.
+
+    Yields:
+        Document: Documenten met kennis-item inhoud en relevante metadata.
+    """
     if not all(
         [settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]
     ):
@@ -103,7 +132,18 @@ def fetch_topdesk_knowledge_items():
         params = None
 
 
-def fetch_topdesk_incidents(limit=300):
+def fetch_topdesk_incidents(limit: int = 300) -> list[dict]:
+    """
+    Haalt tickets op uit TOPdesk via de incidents REST API.
+
+    Ondersteunt paginatie en respecteert een maximum aantal resultaten.
+
+    Args:
+        limit (int): Maximum aantal tickets om op te halen.
+
+    Returns:
+        list[dict]: Lijst van tickets.
+    """
     if not all(
         [settings.TOPDESK_BASE_URL, settings.TOPDESK_USER, settings.TOPDESK_SECRET]
     ):
@@ -145,6 +185,17 @@ def fetch_topdesk_incidents(limit=300):
 
 
 def incidents_to_documents(items: list[dict]) -> list[Document]:
+    """
+    Zet TOPdesk tickets om naar Document objecten.
+
+    Combineert beschrijving en details tot een doorzoekbare tekst.
+
+    Args:
+        items (list[dict]): Lijst van tickets.
+
+    Returns:
+        list[Document]: Verwerkte Documenten.
+    """
     docs = []
 
     for item in items:
@@ -183,9 +234,20 @@ Details:
         "incident_limit": {"type": "int", "default": 200},
     },
 )
-def load_topdesk_source(config: dict):
-    """Loader voor TOPdesk bronnen.
-    Haalt knowledge items op
+def load_topdesk_source(config: dict) -> Generator[Document, None, None]:
+    """
+    Laadt TOPdesk data en zet deze om naar indexeerbare Documenten.
+
+    Deze loader:
+    - haalt kennis-items op
+    - zet deze om naar Document objecten
+    - yieldt de documenten voor verwerking in de ingest pipeline
+
+    Args:
+        config (dict): Configuratie met o.a. include_kb (kennis-items) en incident_limit (tickets).
+
+    Yields:
+        Document: Documenten afkomstig van de TOPdesk omgeving.
     """
 
     include_kb = config.get("include_kb", True)

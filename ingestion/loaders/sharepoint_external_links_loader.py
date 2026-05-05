@@ -11,6 +11,22 @@ logger = get_logger(__name__)
 
 
 def scrape_page(url: str) -> tuple[str, str]:
+    """
+    Scrapet een externe webpagina en extraheert leesbare tekst en titel.
+
+    De functie:
+    - volgt redirects en valideert de uiteindelijke URL
+    - verwijdert irrelevante HTML elementen (scripts, navigatie, formulieren, afbeeldingen, etc.)
+    - zet HTML om naar Markdown
+    - normaliseert de tekst voor verdere verwerking
+
+    Args:
+        url (str): De URL van de externe pagina
+
+    Returns:
+        tuple[str, str]: Tuple met de gescrapete tekst en de paginatitel.
+        Bij fouten of onveilige URL's wordt lege content geretourneerd.
+    """
     try:
         res = requests.get(
             url,
@@ -63,6 +79,21 @@ def scrape_page(url: str) -> tuple[str, str]:
 
 
 def is_valid_external(url: str) -> bool:
+    """
+    Controleert of een externe URL veilig en relevant is om te scrapen.
+
+    Filtert o.a.:
+    - niet-HTTP(s) URL's
+    - lokale of private IP-adressen
+    - ongewenste paden (download, login, etc.)
+    - interne of bekende niet-relevante domeinen zoals SharePoint
+
+    Args:
+        url (str): De te valideren URL.
+
+    Returns:
+        bool: True indien de URL geschikt is voor scraping, anders False.
+    """
     parsed = urlparse(url)
 
     if parsed.scheme not in ("http", "https"):

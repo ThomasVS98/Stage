@@ -6,16 +6,36 @@ from rag.prompts import generate_answer
 from rag.llm import get_llm
 from langfuse import observe
 from utils.logging import get_logger
+from typing import Tuple, List, Any
 
 logger = get_logger(__name__)
 
 
 @observe(name="rag_pipeline")
-def run_rag(query: str, collection: str = "docs", debug: bool = False):
+def run_rag(
+    query: str, collection: str = "docs", debug: bool = False
+) -> Tuple[List[Any], str | None, str | None]:
+    """
+    Voert de volledige RAG pipeline uit.
+
+    Stappen:
+    - ophalen van relevante documenten (retrieval)
+    - herordenen op relevantie (reranking)
+    - bouwen van context
+    - genereren van antwoord via LLM
+
+    Args:
+        query (str): De gebruikersvraag
+        collection (str): Naam van de vector store collectie
+        debug (bool): Indien True, extra logging
+
+    Returns:
+        tuple: (nodes, answer, context)
+    """
     idx = get_index(collection)
 
     if idx is None:
-        return None, None, None
+        return [], None, None
 
     nodes = retrieve_nodes(idx, query)
 
@@ -41,7 +61,7 @@ def run_rag(query: str, collection: str = "docs", debug: bool = False):
         best_score = valid_nodes[0].score
         logger.info("Relevantie gevonden! Best score: %.4f", best_score)
         logger.info(
-            "Top bron: %s -  title: %s",
+            "Top bron: %s -  titel: %s",
             valid_nodes[0].node.metadata.get("url"),
             valid_nodes[0].node.metadata.get("title"),
         )

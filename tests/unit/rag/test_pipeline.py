@@ -8,7 +8,7 @@ def test_run_rag_no_index(mock_get_index):
 
     nodes, answer, context = run_rag("test vraag")
 
-    assert nodes is None
+    assert nodes == []
     assert answer is None
     assert context is None
 

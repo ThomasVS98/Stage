@@ -15,11 +15,23 @@ from ingestion.loaders.sharepoint_external_links_loader import (
 from utils.logging import get_logger
 from config.settings import settings
 from clients.ms_graph_client import graph_get
+from typing import Generator
 
 logger = get_logger(__name__)
 
 
-def html_to_markdown(raw_html: str):
+def html_to_markdown(raw_html: str) -> tuple[str, list[dict]]:
+    """
+    Converteert SharePoint HTML naar genormaliseerde Markdown tekst en extraheert links.
+
+    Verwijdert ongewenste HTML-elementen en normaliseert relatieve links naar absolute URLs.
+
+    Args:
+        raw_html (str): Ruwe HTML-inhoud van een SharePoint webpart.
+
+    Returns:
+        tuple[str, list[dict]]: Genormaliseerde tekst en lijst van gevonden links.
+    """
     if not raw_html:
         return "", []
 
@@ -48,7 +60,18 @@ def html_to_markdown(raw_html: str):
     return text, related_links
 
 
-def extract_page_content(page_details):
+def extract_page_content(page_details: dict) -> tuple[list[str], list[dict]]:
+    """
+    Extraheert tekst en links uit de canvas layout van een SharePoint pagina.
+
+    Doorloopt alle secties en webparts en verzamelt de inhoud en links.
+
+    Args:
+        page_details (dict): JSON response van de Graph API met page details
+
+    Returns:
+        tuple[list[str], list[dict]]: Tekstfragmenten en verzamelde links.
+    """
     content_parts = []
     all_links = []
 
@@ -82,8 +105,22 @@ def build_folder_url(site_id, folder_id):
     return f"https://graph.microsoft.com/v1.0/sites/{site_id}/drive/items/{folder_id}/children"
 
 
-def fetch_all_sharepoint_pages(site_id, site_label):
+def fetch_all_sharepoint_pages(site_id: str, site_label: str) -> list[dict]:
+    """
+    Haalt alle SharePoint pagina's op en extraheert hun inhoud en metadata.
 
+    Voor elke pagina:
+    - wordt de inhoud opgehaald via de Graph API
+    - wordt tekst en links geëxtraheerd
+    - wordt een gestandaardiseerd document-object opgebouwd
+
+    Args:
+        site_id (str): ID van de SharePoint site.
+        site_label (str): Label voor identificatie van de bron.
+
+    Returns:
+        list[dict]: Lijst van pagina's met tekst, links en metadata.
+    """
     pages_url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/pages"
     res_pages = graph_get(pages_url)
 
@@ -134,8 +171,19 @@ def fetch_all_sharepoint_pages(site_id, site_label):
     return final_data
 
 
-def fetch_sharepoint_files(site_id, site_label):
+def fetch_sharepoint_files(site_id: str, site_label: str) -> list[dict]:
+    """
+    Haalt bestanden op uit een SharePoint site via de Graph API.
 
+    Doorloopt recursief de mappenstructuur en verzamelt ondersteunde bestandstypes.
+
+    Args:
+        site_id (str): ID van de SharePoint site.
+        site_label (str): Label voor identificatie van de bron.
+
+    Returns:
+        list[dict]: Lijst van bestanden met metadata en download URLs.
+    """
     final_files = []
     folders_to_process = ["root"]
     visited_folders = set()
@@ -169,7 +217,7 @@ def fetch_sharepoint_files(site_id, site_label):
                 if name.lower().endswith((".pdf", ".docx", ".xlsx", ".pptx", ".txt")):
                     final_files.append(
                         {
-                            "content": "",  # Wordt gevuld na het downloaden/lezen
+                            "content": "",
                             "metadata": {
                                 "source": "sharepoint",
                                 "source_id": item["id"],
@@ -188,8 +236,17 @@ def fetch_sharepoint_files(site_id, site_label):
     return final_files
 
 
-def download_sharepoint_file(download_url, save_path):
-    """Download een bestand van SharePoint naar een lokale map."""
+def download_sharepoint_file(download_url: str, save_path: str) -> bool:
+    """
+    Download een SharePoint bestand naar een lokale tijdelijke map.
+
+    Args:
+        download_url (str): URL om het bestand te downloaden.
+        save_path (str): Lokale opslaglocatie.
+
+    Returns:
+        bool: True indien succesvol gedownload, anders False.
+    """
     try:
         res = requests.get(download_url, timeout=30)
         if res.status_code == 200:
@@ -211,10 +268,21 @@ def download_sharepoint_file(download_url, save_path):
         "include_external_links": {"type": "bool", "required": False, "default": False},
     },
 )
-def load_sharepoint_source(config: dict):
+def load_sharepoint_source(config: dict) -> Generator[Document, None, None]:
     """
-    Nieuwe generieke loader voor SharePoint kennisbronnen.
-    Gebruikt config ipv hardcoded env variabelen.
+    Laadt SharePoint content en zet deze om naar indexeerbare documenten.
+
+    Deze loader:
+    - haalt pagina's op en converteert ze naar Document objecten
+    - kan optioneel externe links scrapen en toevoegen
+    - haalt bestanden op, downloadt ze tijdelijk en verwerkt deze tot Documenten
+    - yieldt alle Documenten voor verdere verwerking in de ingest pipeline
+
+    Args:
+        config (dict): Configuratie met o.a. site_id, label en include_external_links.
+
+    Yields:
+        Document: Documenten afkomstig van pagina's, externe links en bestanden.
     """
 
     site_id = config.get("site_id")

@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 
 
 @router.post("/ingest")
-async def trigger_ingest() -> dict:
+def trigger_ingest() -> dict:
     """
     Start een volledige ingestie van documenten en tickets.
 

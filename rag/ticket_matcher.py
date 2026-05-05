@@ -3,6 +3,7 @@ from rag.reranker import rerank_nodes
 from rag.vector_store import get_index
 from langfuse import observe
 from utils.logging import get_logger
+from typing import Optional
 
 SIMILARITY_THRESHOLD = 0.65
 
@@ -10,12 +11,24 @@ logger = get_logger(__name__)
 
 
 @observe(name="find_similar_ticket")
-def find_similar_ticket(data: dict):
-    query = f"""
-    Probleem: {data.get("beschrijving")}
-    Context: {data.get("context")}
-    Doel: {data.get("doel")}
+def find_similar_ticket(data: dict[str, str]) -> Optional[dict[str, float | str]]:
     """
+    Zoekt naar een bestaand ticket dat gelijkaardig is aan de intake.
+
+    Bouwt een query op basis van beschrijving, context en doel,
+    en vergelijkt deze met bestaande tickets via retrieval + reranking.
+
+    Args:
+        data (dict[str, str]): Intakegegevens met beschrijving, context en doel.
+
+    Returns:
+        dict[str, float | str] | None:
+            - dict met score en tekst van het meest gelijkaardige ticket indien boven drempel
+            - None indien geen voldoende gelijkaardig ticket gevonden wordt
+    """
+    query = f"""Probleem: {data.get("beschrijving", "")}
+Context: {data.get("context", "")}
+Doel: {data.get("doel", "")}"""
     index = get_index("tickets")
 
     if index is None:

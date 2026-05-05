@@ -11,7 +11,20 @@ from pathlib import Path
 logger = get_logger(__name__)
 
 
-def create_document_from_file(content: str, metadata: dict):
+def create_document_from_file(content: str, metadata: dict) -> Document | None:
+    """
+    Zet verwerkte bestandstekst om naar een Document object voor indexering.
+
+    Voegt metadata toe en filtert velden die niet gebruikt mogen worden
+    voor embedding of LLM-context.
+
+    Args:
+        content (str): Geëxtraheerde en opgeschoonde tekst.
+        metadata (dict): Metadata van het bestand.
+
+    Returns:
+        Document | None: Document object indien er inhoud is, anders None.
+    """
     if not content.strip():
         return None
 
@@ -28,6 +41,21 @@ def create_document_from_file(content: str, metadata: dict):
 
 
 def process_file(file_path: str, filename: str) -> str:
+    """
+    Verwerkt een bestand en extraheert tekstinhoud.
+
+    Gedrag:
+    - Voor PDF/DOCX: gebruikt een subprocess (Docling worker) voor extractie.
+    - Voor andere bestanden: gebruikt SimpleDirectoryReader.
+    - Past nadien cleaning en normalisatie toe.
+
+    Args:
+        file_path (str): Pad naar het bestand.
+        filename (str): Naam van het bestand (voor typebepaling).
+
+    Returns:
+        str: Geëxtraheerde en opgeschoonde tekst, of lege string bij fout.
+    """
     try:
         if filename.lower().endswith((".pdf", ".docx")):
             with tempfile.NamedTemporaryFile(
@@ -58,7 +86,6 @@ def process_file(file_path: str, filename: str) -> str:
                         logger.warning(
                             "Kon tijdelijk bestand niet verwijderen: %s", tmp_path
                         )
-            # full_content = extract_with_docling(file_path)
             full_content = clean_markdown(full_content)
             full_content = clean_text(full_content)
 
