@@ -11,8 +11,10 @@ from rag.embedding import get_embed_model
 from utils.logging import get_logger, setup_logging
 from utils.config_loader import load_source_config
 from utils.exceptions import ExternalServiceError
+from typing import Generator, Any, Iterable
+from llama_index.core import Document
 
-# Zorg dat de loaders geïmporteerd worden zodat ze geregistreerd worden in de loader registry
+# Loaders importeren zodat ze geregistreerd worden in de loader registry
 import ingestion.loaders.sharepoint_loader
 import ingestion.loaders.topdesk_loader
 import ingestion.loaders.onedrive_loader
@@ -22,8 +24,19 @@ setup_logging()
 logger = get_logger(__name__)
 
 
-def load_all_data():
+def load_all_data() -> Generator[Document, None, None]:
+    """
+    Laadt alle Documenten uit geconfigureerde bronnen.
 
+    Doorloopt de bronconfiguratie en roept per bron de juiste loader aan.
+    Enkel ingeschakelde bronnen worden verwerkt.
+
+    Yields:
+        Document: Documenten afkomstig van verschillende bronnen.
+
+    Raises:
+        ExternalServiceError: Indien een kritieke fout optreedt bij een externe bron.
+    """
     sources = load_source_config()
     logger.info("Aantal geconfigureerde bronnen: %s", len(sources))
 
@@ -54,7 +67,16 @@ def load_all_data():
             logger.exception("Fout bij laden van %s: %s", source_type, e)
 
 
-def create_index():
+def create_index() -> tuple[VectorStoreIndex, Any]:
+    """
+    Initialiseert een nieuwe vector index in ChromaDB.
+
+    Verwijdert bestaande 'docs' collectie en maakt een nieuwe aan.
+    Configureert de vector store en embedding model.
+
+    Returns:
+        tuple: (VectorStoreIndex, chroma_collection)
+    """
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
 
     try:
@@ -75,14 +97,29 @@ def create_index():
         nodes=[],
         storage_context=storage_context,
         embed_model=get_embed_model(),
-        # transformations=[SentenceSplitter(chunk_size=700, chunk_overlap=100)],
         show_progress=True,
     )
 
     return index, chroma_collection
 
 
-def process_documents(index, document_generator):
+def process_documents(
+    index: VectorStoreIndex, document_generator: Iterable[Document]
+) -> int:
+    """
+    Verwerkt documenten en voegt ze in batches toe aan de vector index.
+
+    - splitst documenten in chunks
+    - voegt deze toe aan de index
+    - monitort geheugenverbruik
+
+    Args:
+        index (VectorStoreIndex): De vector index.
+        document_generator (Generator): Generator die Documenten oplevert.
+
+    Returns:
+        int: Aantal verwerkte documenten.
+    """
     batch = []
     BATCH_SIZE = 20
     count = 0
@@ -118,7 +155,18 @@ def process_documents(index, document_generator):
     return count
 
 
-def build_index(document_generator):
+def build_index(document_generator: Iterable[Document]) -> int:
+    """
+    Bouwt de volledige vector index op basis van documenten.
+
+    Initialiseert de index en verwerkt alle documenten.
+
+    Args:
+        document_generator (Generator): Generator met Documenten.
+
+    Returns:
+        int: Aantal geïndexeerde documenten.
+    """
     index, chroma_collection = create_index()
 
     count = process_documents(index, document_generator)
@@ -129,7 +177,12 @@ def build_index(document_generator):
     return count
 
 
-def cleanup_temp_files():
+def cleanup_temp_files() -> None:
+    """
+    Verwijdert tijdelijke mappen die tijdens ingestie werden aangemaakt.
+
+    Wordt gebruikt om opslag op te ruimen na verwerking van bestanden.
+    """
     temp_dirs = ["./temp_sharepoint", "./temp_onedrive"]
 
     for temp_dir in temp_dirs:

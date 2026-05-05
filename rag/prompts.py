@@ -3,21 +3,50 @@ import re
 from llama_index.core.llms import ChatMessage
 from langfuse import observe
 from utils.logging import get_logger
+from typing import Any
 
 VALID_INTENTS = ["SUPPORT", "ALGEMEEN", "IRRELEVANT"]
 logger = get_logger(__name__)
 
 
-def extract_json(text: str):
+def extract_json(text: str) -> str | None:
+    """
+    Extraheert het eerste JSON-object uit een tekststring.
+
+    Args:
+        text (str): Ruwe tekst van de LLM-output
+
+    Returns:
+        str | None: JSON-string indien gevonden, anders None
+    """
     matches = re.findall(r"\{.*?\}", text, re.DOTALL)
     return matches[0] if matches else None
 
 
 def is_valid_query(q: str) -> bool:
+    """
+    Controleert of een query voldoende tekst bevat om te verwerken.
+
+    Args:
+        q (str): De gebruikersvraag.
+
+    Returns:
+        bool: True indien de query geldig is.
+    """
     return bool(re.search(r"[a-zA-Z]{3,}", q))
 
 
-def parse_llm_json(raw: str, fallback: dict):
+def parse_llm_json(raw: str, fallback: dict[str, Any]) -> dict[str, Any]:
+    """
+    Probeert JSON te parsen uit LLM-output met fallback.
+
+    Args:
+        raw (str): Ruwe LLM-output.
+        fallback (dict[str, Any]): Standaardwaarde bij parsing failure.
+
+    Returns:
+        dict[str, Any]: Geparste JSON of fallback.
+    """
     json_str = extract_json(raw)
 
     if json_str:
@@ -30,6 +59,15 @@ def parse_llm_json(raw: str, fallback: dict):
 
 
 def detect_intent_prompt(query: str) -> str:
+    """
+    Genereert de prompt voor intent detectie.
+
+    Args:
+        query (str): De gebruikersvraag.
+
+    Returns:
+        str: Prompt voor de LLM.
+    """
     return f"""
      Je bent een IT-dienst assistent voor de medewerkers van de Thomas More hogeschool
 
@@ -88,6 +126,12 @@ def detect_intent_prompt(query: str) -> str:
 
 
 def answer_system_prompt() -> str:
+    """
+    Geeft de system prompt voor het genereren van antwoorden.
+
+    Returns:
+        str: System prompt.
+    """
     return """Je bent een IT-assistent voor de medewerkers van de Thomas More hogeschool.
 
         RICHTLIJNEN:
@@ -107,6 +151,16 @@ def answer_system_prompt() -> str:
 
 
 def answer_user_prompt(context: str, query: str) -> str:
+    """
+    Genereert de user prompt met context en vraag.
+
+    Args:
+        context (str): Samengestelde context.
+        query (str): De gebruikersvraag.
+
+    Returns:
+        str: Prompt voor de LLM.
+    """
     return f"""
     Context:
     {context}
@@ -119,7 +173,17 @@ def answer_user_prompt(context: str, query: str) -> str:
 
 
 @observe(name="detect_intent")
-def detect_intent(llm, query: str):
+def detect_intent(llm: Any, query: str) -> str:
+    """
+    Detecteert de intent van een gebruikersvraag met behulp van een LLM.
+
+    Args:
+        llm (Any): LLM instantie.
+        query (str): De gebruikersvraag.
+
+    Returns:
+        str: Gedetecteerde intent (SUPPORT, ALGEMEEN, IRRELEVANT of fallback "ONBEKEND").
+    """
     if not is_valid_query(query):
         return "IRRELEVANT"
 
@@ -149,7 +213,18 @@ def detect_intent(llm, query: str):
 
 
 @observe(name="generate_answer")
-def generate_answer(llm, context, query):
+def generate_answer(llm: Any, context: str, query: str) -> str:
+    """
+    Genereert een antwoord op basis van de context en gebruikersvraag.
+
+    Args:
+        llm (Any): LLM instantie.
+        context (str): Samengestelde context.
+        query (str): De gebruikersvraag.
+
+    Returns:
+        str: Het gegenereerde antwoord.
+    """
     messages = [
         ChatMessage(role="system", content=answer_system_prompt()),
         ChatMessage(role="user", content=answer_user_prompt(context, query)),
@@ -161,7 +236,13 @@ def generate_answer(llm, context, query):
 
 
 def judge_system_prompt() -> str:
-    return """ Je ben een evaluator van antwoorden van een IT-assistent voor de medewerkers van de Thomas More hogeschool.
+    """
+    Geeft de system prompt voor evaluatie van antwoorden.
+
+    Returns:
+        str: Evaluatie prompt.
+    """
+    return """ Je bent een evaluator van antwoorden van een IT-assistent voor de medewerkers van de Thomas More hogeschool.
     
     Je krijgt:
     - De originele vraag van de gebruiker
@@ -204,7 +285,19 @@ def judge_system_prompt() -> str:
 
 
 @observe(name="judge_answer")
-def judge_answer(llm, query: str, context: str, answer: str):
+def judge_answer(llm: Any, query: str, context: str, answer: str) -> dict[str, Any]:
+    """
+    Evalueert een gegenereerd antwoord met behulp van een LLM.
+
+    Args:
+        llm (Any): LLM instantie.
+        query (str): De originele gebruikersvraag.
+        context (str): Gebruikte context.
+        answer (str): Gegenereerd antwoord.
+
+    Returns:
+        dict[str, Any]: Evaluatiescores en uitleg.
+    """
     messages = [
         ChatMessage(role="system", content=judge_system_prompt()),
         ChatMessage(

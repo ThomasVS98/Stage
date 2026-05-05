@@ -9,11 +9,25 @@ from llama_index.core.node_parser import SentenceSplitter
 from rag.embedding import get_embed_model
 from utils.logging import get_logger
 from utils.exceptions import ExternalServiceError
+from llama_index.core import Document
+from typing import Any
 
 logger = get_logger(__name__)
 
 
-def fetch_ticket_documents(limit=300):
+def fetch_ticket_documents(limit: int = 300) -> list[Document]:
+    """
+    Haalt TOPdesk tickets op en zet deze om naar Document objecten.
+
+    Args:
+        limit (int): Maximum aantal tickets om op te halen.
+
+    Returns:
+        list[Document]: Lijst van Documenten gebaseerd op tickets.
+
+    Raises:
+        ExternalServiceError: Bij fouten tijdens ophalen van tickets.
+    """
     logger.info("Topdesk tickets ophalen...")
 
     try:
@@ -30,7 +44,16 @@ def fetch_ticket_documents(limit=300):
     return documents
 
 
-def create_ticket_index():
+def create_ticket_index() -> tuple[VectorStoreIndex, Any]:
+    """
+    Initialiseert een aparte vector index voor tickets.
+
+    Verwijdert bestaande 'tickets' collectie en maakt een nieuwe aan
+    in ChromaDB.
+
+    Returns:
+        tuple: (VectorStoreIndex, collection)
+    """
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
 
     try:
@@ -50,13 +73,23 @@ def create_ticket_index():
         nodes=[],
         storage_context=storage_context,
         embed_model=get_embed_model(),
-        # transformations=[SentenceSplitter(chunk_size=2000, chunk_overlap=0)],
         show_progress=True,
     )
     return index, collection
 
 
-def build_ticket_index(limit=300):
+def build_ticket_index(limit: int = 300) -> tuple[VectorStoreIndex, int]:
+    """
+    Bouwt een vector index op basis van TOPdesk tickets.
+
+    Haalt tickets op, splitst ze in chunks en indexeert ze in batches.
+
+    Args:
+        limit (int): Maximum aantal tickets om te verwerken.
+
+    Returns:
+        tuple: (VectorStoreIndex, aantal geïndexeerde documenten)
+    """
     documents = fetch_ticket_documents(limit)
     logger.info("Indexeren...")
     index, collection = create_ticket_index()

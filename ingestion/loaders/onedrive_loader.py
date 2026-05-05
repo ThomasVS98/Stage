@@ -4,11 +4,24 @@ from ingestion.loader_registry import register_loader
 from clients.ms_graph_client import graph_get
 from ingestion.processing.file_processor import process_file, create_document_from_file
 from utils.logging import get_logger
+from typing import Generator
+from llama_index.core import Document
 
 logger = get_logger(__name__)
 
 
-def fetch_onedrive_files(user_id: str):
+def fetch_onedrive_files(user_id: str) -> list:
+    """
+    Haalt bestanden op uit de OneDrive van een gebruiker via de Microsoft Graph API.
+
+    Filtert enkel items die effectieve bestanden zijn en retourneert relevante metadata.
+
+    Args:
+        user_id (str): ID van de gebruiker waarvan de OneDrive wordt opgehaald.
+
+    Returns:
+        list[dict]: Lijst van bestanden met ID, naam en download URL.
+    """
     url = f"https://graph.microsoft.com/v1.0/users/{user_id}/drive/root/children"
     res = graph_get(url)
 
@@ -47,11 +60,23 @@ def fetch_onedrive_files(user_id: str):
         "label": {"type": "string", "required": False},
     },
 )
-def load_onedrive_source(config: dict):
+def load_onedrive_source(config: dict) -> Generator[Document, None, None]:
     """
-    Basis OneDrive loader
-    """
+    Laadt documenten uit OneDrive en zet deze om naar indexeerbare documenten.
 
+    Deze loader:
+    - haalt bestanden uit OneDrive en zet deze om naar indexeerbare documenten.
+    - downloadt ze tijdelijk lokaal
+    - extraheert de tekstinhoud
+    - maakt documenten aan met metadata
+    - yieldt deze voor verdere verwerking in de ingest pipeline
+
+    Args:
+        config (dict): Configuratie met o.a. user_id en label.
+
+    Yields:
+        Document: Verwerkte documenten klaar voor indexering.
+    """
     label = config.get("label", "OneDrive")
     user_id = config.get("user_id")
 

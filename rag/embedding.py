@@ -7,7 +7,19 @@ logger = get_logger(__name__)
 _embed_model = None
 
 
-def get_embed_model():
+def get_embed_model() -> HuggingFaceEmbedding:
+    """
+    Initialiseert en retourneert het embedding model.
+
+    Het model wordt slechts één keer geladen
+    en hergebruikt voor alle embedding operaties.
+
+    Detecteert automatisch of CUDA beschikbaar is en kiest
+    het juiste device (GPU of CPU)
+
+    Returns:
+        HuggingFaceEmbedding: Geconfigureerd embedding model.
+    """
     global _embed_model
     if _embed_model is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"

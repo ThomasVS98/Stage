@@ -207,7 +207,6 @@ with tab_chat:
                                 f"**Ticketnummer:** {data['ticket']['number']}\n\n"
                                 "De ICTS-dienst zal dit verder behandelen."
                             )
-                            # st.json(data["data"])
                             logger.info(
                                 "Intake afgerond, ticket aangemaakt: %s",
                                 data["ticket"]["number"],
@@ -284,11 +283,6 @@ with tab_admin:
             st.error(f"Verbindingsfout: {e}")
             logger.exception("Opslaan mislukt")
             return False
-
-    # @st.cache_data
-    # def get_sources():
-    #     res = requests.get(f"{API_BASE_URL}/sources")
-    #     return res.json()
 
     @st.cache_data
     def get_loader_types():
