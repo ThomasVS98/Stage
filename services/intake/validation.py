@@ -4,6 +4,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from langfuse import observe
 from utils.logging import get_logger
+from typing import Mapping, Any
 
 logger = get_logger(__name__)
 
@@ -30,7 +31,7 @@ def get_model() -> SentenceTransformer:
 
 @observe(name="is_relevant")
 def is_relevant(
-    original_question: str, intake_data: dict[str, str], threshold: float = 0.5
+    original_question: str, intake_data: Mapping[str, Any], threshold: float = 0.5
 ) -> bool:
     """
     Bepaalt of intake antwoorden relevant zijn t.o.v. de originele vraag.

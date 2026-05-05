@@ -34,7 +34,7 @@ class ExternalServiceError(AppError):
 
 class AppValidationError(AppError):
     """
-    Fout bij validatie van gebruikserinput.
+    Fout bij validatie van gebruikersinput.
     """
 
     pass
