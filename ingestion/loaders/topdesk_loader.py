@@ -244,7 +244,7 @@ def load_topdesk_source(config: dict) -> Generator[Document, None, None]:
     - yieldt de documenten voor verwerking in de ingest pipeline
 
     Args:
-        config (dict): Configuratie met o.a. include_kb (kennis-items) en incident_limit (tickets).
+        config (dict): Configuratie met o.a. include_kb (kennis-items)
 
     Yields:
         Document: Documenten afkomstig van de TOPdesk omgeving.

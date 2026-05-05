@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 @observe(name="rag_pipeline")
 def run_rag(
     query: str, collection: str = "docs", debug: bool = False
-) -> Tuple[List[Any], str | None, str | None]:
+) -> Tuple[List[Any] | None, str | None, str | None]:
     """
     Voert de volledige RAG pipeline uit.
 
@@ -35,7 +35,7 @@ def run_rag(
     idx = get_index(collection)
 
     if idx is None:
-        return [], None, None
+        return None, None, None
 
     nodes = retrieve_nodes(idx, query)
 
