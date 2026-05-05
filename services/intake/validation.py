@@ -10,7 +10,16 @@ logger = get_logger(__name__)
 _model = None
 
 
-def get_model():
+def get_model() -> SentenceTransformer:
+    """
+    Initialiseert en cachet het SentenceTransformer model.
+
+    Het model wordt éénmalig geladen en hergebruikt
+    voor alle relevantie checks
+
+    Returns:
+        SentenceTransformer: Geconfigureerd embedding model.
+    """
     global _model
     if _model is None:
         _model = SentenceTransformer(
@@ -20,7 +29,23 @@ def get_model():
 
 
 @observe(name="is_relevant")
-def is_relevant(original_question: str, intake_data: dict, threshold: float = 0.5):
+def is_relevant(
+    original_question: str, intake_data: dict[str, str], threshold: float = 0.5
+) -> bool:
+    """
+    Bepaalt of intake antwoorden relevant zijn t.o.v. de originele vraag.
+
+    Combineert intake velden en vergelijkt deze semantisch
+    met de oorspronkelijke vraag via embeddings en cosine similarity.
+
+    Args:
+        original_question (str): De oorspronkelijke gebruikersvraag.
+        intake_data (dict[str, str]): Intake antwoorden (beschrijving, context, doel).
+        threshold (float): Minimale similarity score om als relevant te gelden.
+
+    Returns:
+        bool: True indien relevant, anders False.
+    """
     combined = f"""
     Probleem: {intake_data.get("beschrijving") or ""}
     Context: {intake_data.get("context") or ""}
@@ -39,6 +64,23 @@ def is_relevant(original_question: str, intake_data: dict, threshold: float = 0.
 
 
 def validate_answer(key: str, answer: str) -> str:
+    """
+    Valideert en normaliseert een intake antwoord.
+
+    - verwijdert HTML tags
+    - trimt whitespace
+    - controleert minimum/maximum lengte per veld
+
+    Args:
+        key (str): Intake veld (beschrijving, context, doel).
+        answer (str): Ingevoerde waarde.
+
+    Returns:
+        str: Opgeschoond en gevalideerd antwoord.
+
+    Raises:
+        AppValidationError: Bij ongeldige input.
+    """
     if not isinstance(answer, str):
         raise AppValidationError("Antwoord moet tekst zijn.")
 

@@ -5,7 +5,21 @@ from utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def save_feedback(query: str, answer: str, score: str):
+def save_feedback(query: str, answer: str, score: str) -> None:
+    """
+    Slaat gebruikersfeedback op in een JSONL bestand.
+
+    Elke feedback entry bevat:
+    - timestamp (UTC)
+    - query (gebruikersvraag)
+    - answer (gegenereerd antwoord)
+    - score (duimpje omhoog ("up") of omlaag ("down"))
+
+    Args:
+        query (str): De oorspronkelijke gebruikersvraag.
+        answer (str): Het gegenereerde antwoord.
+        score (str): De feedbackscore ("up" of "down").
+    """
     try:
         entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),

@@ -3,14 +3,27 @@ import os
 import uuid
 from utils.logging import get_logger
 from config.settings import settings
+from typing import Any
 
 logger = get_logger(__name__)
 
 CONFIG_PATH = os.path.join("config", "sources.json")
 
 
-def resolve_env(config: dict) -> dict:
-    resolved = {}
+def resolve_env(config: dict[str, Any]) -> dict[str, Any]:
+    """
+    Vervangt configuratiewaarden die verwijzen naar environment variabelen.
+
+    Strings die eindigen op "_ID" worden geïnterpreteerd als verwijzing
+    naar een waarde in settings.
+
+    Args:
+        config (dict[str, Any]): Ruwe configuratie.
+
+    Returns:
+        dict[str, Any]: Configuratie met opgeloste environment waarden.
+    """
+    resolved: dict[str, Any] = {}
 
     for key, value in config.items():
         if isinstance(value, str) and value.endswith("_ID"):
@@ -26,7 +39,19 @@ def resolve_env(config: dict) -> dict:
     return resolved
 
 
-def load_source_config(resolve: bool = True):
+def load_source_config(resolve: bool = True) -> list[dict[str, Any]]:
+    """
+    Laadt bronconfiguratie uit het JSON bestand.
+
+    - voegt ontbrekende IDs toe
+    - lost environment variabelen op indien gevraagd
+
+    Args:
+        resolve (bool): Indien True, worden environment variabelen opgelost.
+
+    Returns:
+        list[dict[str, Any]]: Lijst van bronconfiguraties.
+    """
     try:
         with open(CONFIG_PATH, "r") as f:
             raw = json.load(f)
@@ -60,7 +85,13 @@ def load_source_config(resolve: bool = True):
     return resolved if resolve else updated_raw
 
 
-def save_source_config(sources: list):
+def save_source_config(sources: list[dict[str, Any]]) -> None:
+    """
+    Slaat bronconfiguratie op naar het JSON bestand.
+
+    Args:
+        sources (list[dict[str, Any]]): Configuraties om op te slaan.
+    """
     try:
         with open(CONFIG_PATH, "w") as f:
             json.dump(sources, f, indent=2)

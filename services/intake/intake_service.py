@@ -7,12 +7,25 @@ from rag.ticket_matcher import find_similar_ticket
 from langfuse import observe
 import uuid
 from utils.logging import get_logger
+from typing import Any
 
 logger = get_logger(__name__)
 
 
 @observe(name="intake_start")
-def start(original_question: str):
+def start(original_question: str) -> dict[str, str]:
+    """
+    Start een nieuwe intake sessie.
+
+    Initialiseert een nieuwe sessie en retourneert de eerste vraag
+    uit de intake flow
+
+    Args:
+        original_question (str): De originele vraag van de gebruiker.
+
+    Returns:
+        dict[str, str]: Bevat session_id en eerste vraag van de intake.
+    """
     session_id = str(uuid.uuid4())
     session_store.create(session_id)
 
@@ -22,7 +35,29 @@ def start(original_question: str):
 
 
 @observe(name="intake_answer")
-def answer(payload: dict):
+def answer(payload: dict[str, Any]) -> dict[str, Any]:
+    """
+    Verwerkt een antwoord binnen een intake sessie.
+
+    - valideert input
+    - bewaart antwoord in sessie
+    - bepaalt volgende stap of finale verwerking
+    - voert matching uit of maakt een ticket aan
+
+    Args:
+        payload (dict[str, Any]): Input met session_id en answer.
+
+    Returns:
+        - tijdens intake: {"done": False, "question": str}
+        - bij afronding:
+            * met match: {"done": True, "data": ..., "similar_ticket": ...}
+            * met ticket: {"done": True, "data": ..., "ticket": {...}}
+            * bij fout: {"done": True, "error": str}
+
+    Raises:
+        AppValidationError: Bij ontbrekende of ongeldige sessie/inputs.
+        ExternalServiceError: Bij falen van ticket creatie.
+    """
     session_id = payload.get("session_id")
     answer = payload.get("answer")
 
