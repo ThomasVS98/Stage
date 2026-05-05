@@ -14,11 +14,21 @@ from rag.vector_store import reload_index
 from utils.logging import get_logger
 from utils.exceptions import IngestionError, SourceConfigError, ExternalServiceError
 from api.models.source_model import SourceModel
+from typing import Any
 
 logger = get_logger(__name__)
 
 
-def get_folder_size(path):
+def get_folder_size(path: str) -> float:
+    """
+    Berekent de totale grootte van een map in megabytes.
+
+    Args:
+        path (str): Pad naar de map.
+
+    Returns:
+        float: Totale grootte van de map in MB.
+    """
     total = 0
     for dirpath, _, filenames in os.walk(path):
         for f in filenames:
@@ -27,7 +37,23 @@ def get_folder_size(path):
     return total / (1024 * 1024)  # Return size in MB
 
 
-def run_full_ingestion():
+def run_full_ingestion() -> dict[str, int]:
+    """
+    Voert een volledige ingestie uit van alle bronnen en tickets.
+
+    Stappen:
+    - laadt documenten uit alle bronnen
+    - bouwt de vector index
+    - verwerkt en indexeert tickets
+    - voert cleanup uit van tijdelijke bestanden
+    - herlaadt vector indices
+
+    Returns:
+        dict[str, int]: Aantal geïndexeerde documenten en tickets.
+
+    Raises:
+        IngestionError: Bij fouten tijdens ingestie.
+    """
     logger.info("Ingestie gestart...")
 
     try:
@@ -91,7 +117,19 @@ def run_full_ingestion():
         raise IngestionError(str(e)) from e
 
 
-def process_sources(sources: list[SourceModel]):
+def process_sources(sources: list[SourceModel]) -> list[dict[str, Any]]:
+    """
+    Valideert en normaliseert een lijst van bronconfiguraties.
+
+    Zorgt ervoor dat elke bron een geldig formaat heeft
+    en een unieke ID krijgt indien ontbrekend.
+
+    Args:
+        sources (list[SourceModel]): Lijst van bronconfiguraties.
+
+    Returns:
+        list[dict[str, Any]]: Lijst van gevalideerde bronnen.
+    """
     validated_sources = []
 
     for src in sources:
@@ -105,7 +143,24 @@ def process_sources(sources: list[SourceModel]):
     return validated_sources
 
 
-def validate_source(source: SourceModel):
+def validate_source(source: SourceModel) -> dict[str, Any]:
+    """
+    Valideert een enkele bronconfiguratie tegen het schema.
+
+    Controleert:
+    - onbekende velden
+    - verplichte velden
+    - type conversies (bool, int, string)
+
+    Args:
+        source (SourceModel): De bronconfiguratie.
+
+    Returns:
+        dict[str, Any]: Gevalideerde en genormaliseerde configuratie.
+
+    Raises:
+        SourceConfigError: Bij ongeldige configuratie.
+    """
     schema = get_schema(source.type)
 
     if not schema:

@@ -9,6 +9,14 @@ from ingestion.loaders.sharepoint_loader import (
 )
 from unittest.mock import patch, MagicMock
 from config.settings import settings
+import pytest
+import shutil
+
+
+@pytest.fixture(scope="module", autouse=True)
+def cleanup_temp():
+    yield
+    shutil.rmtree("./temp_sharepoint", ignore_errors=True)
 
 
 def test_html_to_markdown_basic():
