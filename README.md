@@ -1,11 +1,115 @@
-# Stage
-In deze repository ontwikkel ik een een AI-agent die fungeert als digitale assistent.
+# AI-Agent
+
+Deze repository bevat de implementatie van een AI-agent die fungeert als digitale assistent voor het beantwoorden van gebruikersvragen en het ondersteunen van supportprocessen.
+
+---
 
 ## Overzicht
-Ik ontwikkel dus een agent die gebruikersvragen ontvangt en op basis van die vragen dan een antwoord met doorverwijzingen genereert. Indien onvoldoende informatie, zal een intake opstarten die leidt tot een automatische ticket via TOPdesk.
+
+De agent verwerkt gebruikersvragen en genereert antwoorden op basis van interne kennisbronnen via een Retrieval-Augmented Generation (RAG) pipeline.
+
+Wanneer onvoldoende informatie beschikbaar is, wordt automatisch een intakeprocedure gestart. Deze intake kan leiden tot het aanmaken van een ticket in TOPdesk.
+
+---
 
 ## Architectuur
-Deze oplossing zal gerealiseerd worden via een RAG-framework. Deze zal het Large Language Model de nodige context geven voor een correct en relevant antwoord. Het RAG-systeem zal gebruiken maken van een zelf gekozen embedding model en vector store. De volledige tool stack is open-source.
+
+De oplossing is opgebouwd rond een RAG-architectuur waarbij een Large Language Model wordt verrijkt met context uit externe bronnen.
+
+Belangrijke componenten:
+
+- RAG-pipeline (retrieval + reranking + context building)
+- Vector database (ChromaDB)
+- Embedding model (SentenceTransformers)
+- Backend API (FastAPI)
+- Intake- en ticketingflow (TOPdesk integratie)
+- Monitoring (Langfuse)
+
+---
+
+## Vereisten
+
+- Windows
+- Python 3.x
+
+---
+
+## Installatie
+
+Clone de repository en navigeer naar de map:
+
+```
+git clone https://github.com/ThomasVS98/Stage.git
+cd Stage
+```
+
+Maak en activeer een virtual environment:
+
+```
+python -m venv venv
+venv\Scripts\activate
+```
+
+Installeer dependencies:
+
+```
+pip install -r requirements.txt
+```
+
+---
+
+## Configuratie
+
+Maak een `.env` bestand op basis van `.env.example`:
+
+```
+Copy-Item .env.example .env
+```
+
+Vul de vereiste waarden in voor:
+
+- SharePoint / Microsoft Graph  
+- TOPdesk  
+- Langfuse  
+
+---
+
+## LLM Setup
+
+Deze applicatie gebruikt een lokaal model via Ollama.
+
+Download en installeer Ollama via:
+https://ollama.com
+
+Download een model, bijvoorbeeld: `ollama pull llama3.2:3b` of `ollama pull mistral:7b`
+
+Zorg dat Ollama actief is voordat je de backend start.
+
+---
+
+## Gebruik
+
+Start de backend:
+
+```
+uvicorn api.main:app --reload
+```
+
+Start de frontend:
+
+```
+streamlit run frontend/app.py
+```
+
+---
+
+## Evaluatie
+
+In de map `evaluation/` bevinden zich testsets die gebruikt zijn om de kwaliteit van de retrieval en gegenereerde antwoorden te evalueren.
+
+---
+
+## Projectstructuur
 
 ```
 Stage
@@ -15,6 +119,7 @@ Stage
 │  │  └─ source_model.py
 │  └─ routes
 │     ├─ admin_routes.py
+│     ├─ feedback_routes.py
 │     ├─ intake_routes.py
 │     └─ rag_routes.py
 ├─ clients
@@ -61,6 +166,7 @@ Stage
 ├─ requirements.txt
 ├─ services
 │  ├─ admin_service.py
+│  ├─ feedback_service.py
 │  ├─ intake
 │  │  ├─ intake_service.py
 │  │  ├─ intake_state.py
@@ -82,7 +188,8 @@ Stage
 │     │  │  └─ test_topdesk_loader.py
 │     │  ├─ preprocessing
 │     │  │  ├─ test_cleaning.py
-│     │  │  └─ test_docling_parser.py
+│     │  │  ├─ test_docling_parser.py
+│     │  │  └─ test_docling_worker.py
 │     │  ├─ processing
 │     │  │  └─ test_file_processor.py
 │     │  ├─ test_ingest_pipeline.py
@@ -103,6 +210,7 @@ Stage
 │     │  │  ├─ test_intake_service.py
 │     │  │  └─ test_validation.py
 │     │  ├─ test_admin_service.py
+│     │  ├─ test_feedback_service.py
 │     │  └─ test_qa_service.py
 │     ├─ stores
 │     │  └─ test_session_store.py
@@ -113,5 +221,10 @@ Stage
    ├─ exceptions.py
    ├─ logging.py
    └─ __init__.py
-
 ```
+
+---
+
+## Opmerking
+
+Deze applicatie maakt gebruik van externe systemen en vereist correcte configuratie van API-sleutels en endpoints.
